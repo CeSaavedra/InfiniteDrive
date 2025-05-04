@@ -21,3 +21,26 @@ header h1 {
   left: 0;
 
 }
+
+/* === HUD Overlay === */
+#hud {
+  position: absolute;
+  top: 20px;
+  left: 20px;
+  z-index: 10;
+  pointer-events: none;
+  color: white;
+  font-family: 'Courier New', monospace;
+  font-size: 1.2em;
+  background-color: rgba(0, 0, 0, 0.5); /* optional: semi-transparent background */
+  padding: 10px;
+  border-radius: 8px;
+  box-shadow: 0 0 10px rgba(255, 255, 255, 0.1);
+}
+
+#brakeStatus {
+  color: red;
+  font-weight: bold;
+  display: none;
+  margin-top: 5px;
+}
