@@ -52,7 +52,9 @@ groundBody.addShape(groundShape);
 groundBody.quaternion.setFromEuler(-Math.PI / 2, 0, 0); // Flattens ground at y = 0
 world.addBody(groundBody); // Creates invisible collidable plane on the ground
 
-
+// === HUD Elements ===
+const speedDisplay = document.getElementById('speedDisplay');
+const brakeStatus = document.getElementById('brakeStatus');
 
 
 /** ======================= LOAD 3D CAR MODELS ========================
@@ -69,9 +71,12 @@ let tires = []; // Array to store tire meshes
 
 // Speed values based on Unit per Second
 let currentSpeed = 40;         // Initial Speed
-const maxSpeed = 80;           // Maximum Speed
+const maxSpeed = 160;           // Maximum Speed
 const accelerationRate = 15;   // Speed increment per sec when accelerating
 const brakeDecelerationRate = 25; // Speed decrement per sec when braking
+
+// Distance traveled
+let distanceTraveled = 0;
 
 const loader = new GLTFLoader();
 loader.load(
@@ -477,9 +482,18 @@ function updateSkyscrapers(playerZ) {
         brakingActive = false;
       }
     }
-    
- 
-     // --- Smoother Turning Implementation ---
+
+     // Distance Traveled
+     if (currentSpeed > 0) {
+         distanceTraveled += currentSpeed * delta;
+     }
+
+     const distanceMiles = distanceTraveled * 0.621371;
+     distanceDisplay.textContent = `Distance: ${distanceMiles.toFixed(2)} mi`;
+
+
+
+       // --- Smoother Turning Implementation ---
      // Increase or decrease turnAngularVelocity based on left/right inputs.
      if (keyState.left) {
        turnAngularVelocity += turnAcceleration * delta;
@@ -553,6 +567,10 @@ function updateSkyscrapers(playerZ) {
      adjustedPosition.y += 2.25;
      camera.lookAt(adjustedPosition);
    }
+     // === Update HUD ===
+     const speedMPH = currentSpeed * 0.621371;
+     speedDisplay.textContent = `Speed: ${Math.round(speedMPH)} mph`;
+     brakeStatus.style.display = keyState.brake ? 'block' : 'none';
    renderer.render(scene, camera);
  }
  animate();
