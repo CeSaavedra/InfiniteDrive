@@ -55,7 +55,7 @@ world.addBody(groundBody); // Creates invisible collidable plane on the ground
 // === HUD Elements ===
 const speedDisplay = document.getElementById('speedDisplay');
 const brakeStatus = document.getElementById('brakeStatus');
-
+const scoreDisplay = document.getElementById('scoreDisplay');
 
 /** ======================= LOAD 3D CAR MODELS ========================
  * The following segment of code retrieves the 3D models (glb) in the
@@ -71,7 +71,7 @@ let tires = []; // Array to store tire meshes
 
 // Speed values based on Unit per Second
 let currentSpeed = 40;         // Initial Speed
-const maxSpeed = 160;           // Maximum Speed
+const maxSpeed = 80;           // Maximum Speed
 const accelerationRate = 15;   // Speed increment per sec when accelerating
 const brakeDecelerationRate = 25; // Speed decrement per sec when braking
 
@@ -488,8 +488,8 @@ function updateSkyscrapers(playerZ) {
          distanceTraveled += currentSpeed * delta;
      }
 
-     const distanceMiles = distanceTraveled * 0.621371;
-     distanceDisplay.textContent = `Distance: ${distanceMiles.toFixed(2)} mi`;
+     const distanceMiles = distanceTraveled;
+     scoreDisplay.textContent = `Score ${Math.floor(distanceMiles)}`;
 
 
 
@@ -568,7 +568,7 @@ function updateSkyscrapers(playerZ) {
      camera.lookAt(adjustedPosition);
    }
      // === Update HUD ===
-     const speedMPH = currentSpeed * 0.621371;
+     const speedMPH = currentSpeed * 1.5;
      speedDisplay.textContent = `Speed: ${Math.round(speedMPH)} mph`;
      brakeStatus.style.display = keyState.brake ? 'block' : 'none';
    renderer.render(scene, camera);
