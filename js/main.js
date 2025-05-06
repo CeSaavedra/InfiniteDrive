@@ -9,6 +9,8 @@ import { keyState } from './controls.js';
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x0D0B1C);   // Dark blue background (night sky)
 
+
+
 // ------------------ CAMERA ------------------
 const camera = new THREE.PerspectiveCamera(
   75,
@@ -18,7 +20,7 @@ const camera = new THREE.PerspectiveCamera(
 );
 
 // ------------------ LIGHTS ------------------
-const light = new THREE.DirectionalLight(0xffffff, .7); // Light Color & Intensity
+const light = new THREE.DirectionalLight(0xffffff, .9); // Light Color & Intensity
 light.position.set(1.5, 1, 1); // Light position
 scene.add(light);
 
@@ -36,7 +38,7 @@ window.addEventListener('resize', () => { // Allows user to resize window
   camera.aspect = window.innerWidth / window.innerHeight;
   camera.updateProjectionMatrix();
   renderer.setSize(window.innerWidth, window.innerHeight);
-}); 
+});
 
 // -------------- PHYSICS (CANNON) --------------
 const world = new CANNON.World(); // Creates physics world with gravity
@@ -71,7 +73,7 @@ let tires = []; // Array to store tire meshes
 
 // Speed values based on Unit per Second
 let currentSpeed = 40;         // Initial Speed
-const maxSpeed = 160;           // Maximum Speed
+const maxSpeed = 80;           // Maximum Speed
 const accelerationRate = 15;   // Speed increment per sec when accelerating
 const brakeDecelerationRate = 25; // Speed decrement per sec when braking
 
@@ -135,6 +137,7 @@ loader.load(
  *  according player's Z position and are recycled for optimization.
  *///==================================================================
 
+// Global variables (already defined in your code)
 const laneCount = 4;
 const laneWidth = 3;
 const roadTotalWidth = laneCount * laneWidth;
@@ -142,6 +145,93 @@ const segmentLength = 50; // 50 units long
 const numSegments = 20;
 const roadSegments = [];
 let globalBarrierModel = null;
+let globalNPCCarModel = null; // <-- Added for NPC cars
+
+// FUNCTION - Spawns an NPC car into the given road segment.
+function spawnNPCCar(segment) {
+  if (!globalNPCCarModel) {
+    // The model isn’t loaded yet; mark this segment for later processing.
+    segment.userData.needNPCCar = true;
+    return;
+  }
+  
+  // Remove the flag once we start spawning the car.
+  delete segment.userData.needNPCCar;
+  
+  // Clone the NPC car model.
+  const npcCar = globalNPCCarModel.clone();
+  npcCar.rotation.y = -Math.PI;
+  npcCar.scale.set(1, 1, 1);
+
+  // --- Update the color for the main frame ---
+  // Look for the node named "main_frame".
+  const mainFrame = npcCar.getObjectByName("main_frame");
+  if (mainFrame) {
+    // Define your array of colors.
+    const colors = [0xCA1818, 0x254EA3, 0xE8B221, 0xD5D5D5];
+    const chosenColor = colors[Math.floor(Math.random() * colors.length)];
+
+    // If the object is a group, try to find the Mesh inside.
+    mainFrame.traverse(child => {
+      if (child.isMesh && child.material) {
+        // Determine if the material is shared by cloning it first.
+        if (Array.isArray(child.material)) {
+          // Clone the first material in the array to ensure it's unique.
+          const originalMat = child.material[0];
+          child.material[0] = originalMat.clone();
+          child.material[0].color.setHex(chosenColor);
+          child.material[0].needsUpdate = true;
+        } else {
+          child.material = child.material.clone();
+          child.material.color.setHex(chosenColor);
+          child.material.needsUpdate = true;
+        }
+      }
+    });
+  } else {
+    console.warn("main_frame not found in NPC car model.");
+  }
+  // ------------------------------------------
+
+  // Choose a random lane for the NPC car.
+  const laneIndex = Math.floor(Math.random() * laneCount);
+  const laneX = -roadTotalWidth / 2 + laneWidth / 2 + laneIndex * laneWidth;
+
+  // Pick a random Z offset within the segment.
+  const offsetZ = THREE.MathUtils.randFloat(-segmentLength / 4, segmentLength / 4);
+
+  // Set the NPC car’s position relative to the segment coordinates.
+  npcCar.position.set(laneX, 0.36, offsetZ);
+
+  // Add the NPC car as a child of the segment.
+  segment.add(npcCar);
+  segment.userData.npcCar = npcCar;
+}
+
+
+// FUNCTION - Loads the NPC car model.
+function loadNPCCarModel() {
+  const loader = new GLTFLoader();
+  loader.load(
+    './assets/models/npc_car.glb',
+    function (gltf) {
+      globalNPCCarModel = gltf.scene;
+      console.log('NPC car model loaded.');
+      
+      // After loading, check each road segment to see if it was waiting for an NPC car.
+      roadSegments.forEach(segment => {
+        if (segment.userData.needNPCCar) {
+          spawnNPCCar(segment);
+        }
+      });
+    },
+    undefined,
+    function (error) {
+      console.error('Error loading npc_car model:', error);
+    }
+  );
+}
+
 
 // FUNCTION - Attaches 3D Road Barrier on both sides of the Road Segment
 function addBarriersToSegment(segment) {
@@ -167,26 +257,25 @@ function addBarriersToSegment(segment) {
 function addCollidableWallsToSegment(segment) {
   const wallThickness = 0.5;
   const wallHeight = 2;
-  const margin = -.95; // Offset from the road edge
+  const margin = -0.95; // Offset from the road edge
 
   // Use segment's current z position
   const zPos = segment.position.z;
   const halfExtents = new CANNON.Vec3(wallThickness / 2, wallHeight / 2, segmentLength / 2);
 
-  // Checks if collidable wall body has already been attached to the wall segment
   if (!segment.userData.wallBodies) {
-    // Create new collidable wall bodies.
     const leftWallBody = new CANNON.Body({ mass: 0 });
     leftWallBody.addShape(new CANNON.Box(halfExtents));
     leftWallBody.position.set(-roadTotalWidth / 2 - wallThickness / 2 - margin, wallHeight / 2, zPos);
     world.addBody(leftWallBody);
+
     const rightWallBody = new CANNON.Body({ mass: 0 });
     rightWallBody.addShape(new CANNON.Box(halfExtents));
     rightWallBody.position.set(roadTotalWidth / 2 + wallThickness / 2 + margin, wallHeight / 2, zPos);
     world.addBody(rightWallBody);
+
     segment.userData.wallBodies = [leftWallBody, rightWallBody];
   } else {
-    // Update their positions to follow the segment
     const [leftWallBody, rightWallBody] = segment.userData.wallBodies;
     leftWallBody.position.set(-roadTotalWidth / 2 - wallThickness / 2 - margin, wallHeight / 2, zPos);
     rightWallBody.position.set(roadTotalWidth / 2 + wallThickness / 2 + margin, wallHeight / 2, zPos);
@@ -194,7 +283,8 @@ function addCollidableWallsToSegment(segment) {
   segment.userData.hasCollidableWalls = true;
 }
 
-// FUNCTION - Creates road segment containing asphalt, dashed lines, side lines, visual 3d barrier & invisible collidable barrier
+// FUNCTION - Creates road segment containing asphalt, dashed lines, side lines,
+// visual 3d barrier, invisible collidable barrier & now an NPC car.
 function createRoadSegment(zPosition) {
   const roadSegmentGroup = new THREE.Group();
 
@@ -229,7 +319,8 @@ function createRoadSegment(zPosition) {
   const leftSideLine = new THREE.Mesh(sideLineGeometry, sideLineMaterial);
   leftSideLine.rotation.x = -Math.PI / 2;
   leftSideLine.position.set(-roadTotalWidth / 2 + dashThickness / 2, 0.02, 0);
-  roadSegmentGroup.add(leftSideLine)
+  roadSegmentGroup.add(leftSideLine);
+
   const rightSideLine = new THREE.Mesh(sideLineGeometry, sideLineMaterial);
   rightSideLine.rotation.x = -Math.PI / 2;
   rightSideLine.position.set(roadTotalWidth / 2 - dashThickness / 2, 0.02, 0);
@@ -240,24 +331,30 @@ function createRoadSegment(zPosition) {
     addBarriersToSegment(roadSegmentGroup);
   }
 
-  // IMPORTANT: Set the segment's position first.
+  // Set the segment's position.
   roadSegmentGroup.position.set(0, 0, zPosition);
 
   // ------------ ADD INVISIBLE WALLS ------------
   addCollidableWallsToSegment(roadSegmentGroup);
 
+  // ------------- SPAWN THE NPC CAR -------------
+  if(Math.random() < 0.75){
+    spawnNPCCar(roadSegmentGroup);
+  }
+
   scene.add(roadSegmentGroup);
   return roadSegmentGroup;
 }
+
 
 // FUNCTION - Retrieves Highway Barrier 3D GLB model and attaches to all road segments
 function loadRoadBarriers() {
   const barrierLoader = new GLTFLoader();
   barrierLoader.load(
-    './assets/models/road_barrier.glb', // Adjust the path as needed.
+    './assets/models/road_barrier.glb',
     function (gltf) {
       globalBarrierModel = gltf.scene;
-      globalBarrierModel.scale.set(1, 0.5, 1);
+      globalBarrierModel.scale.set(1, 1, 1);
       roadSegments.forEach(segment => {
         if (!segment.userData.hasBarriers) {
           addBarriersToSegment(segment);
@@ -271,28 +368,39 @@ function loadRoadBarriers() {
   );
 }
 
-// FUNCTION - Recyles road segments based on player's position. Replaces each recyled road segment (INFINITE)
+// FUNCTION - Recyles road segments based on player's position. Repositions NPCs as well.
 function updateRoad(playerPositionZ) {
   roadSegments.forEach(segment => {
     if (segment.position.z > playerPositionZ + segmentLength) {
       segment.position.z -= numSegments * segmentLength;
-      // Re-add or update visual barriers if needed.
+
+      // Re-add visual barriers if needed.
       if (globalBarrierModel && !segment.userData.hasBarriers) {
         addBarriersToSegment(segment);
       }
       // Update collidable walls to match the segment's new position.
       addCollidableWallsToSegment(segment);
+
+      // For recycled segments, update the NPC car's placement.
+      if (segment.userData.npcCar) {
+        const laneIndex = Math.floor(Math.random() * laneCount);
+        const laneX = -roadTotalWidth / 2 + laneWidth / 2 + laneIndex * laneWidth;
+        const offsetZ = THREE.MathUtils.randFloat(-segmentLength / 4, segmentLength / 4);
+        segment.userData.npcCar.position.set(laneX, 0.36, offsetZ);
+      }
     }
   });
 }
 
 // ------------ INITIALIZATION ------------
 const carStartZ = 0; // Player's starting Z position
-for (let i = 0; i < numSegments; i++) { // Pushes road segments along -Z axis
+for (let i = 0; i < numSegments; i++) {
   roadSegments.push(createRoadSegment(carStartZ - i * segmentLength));
 }
-// Load the road barriers (this attaches visual barrier pairs to all existing segments).
 loadRoadBarriers();
+// Load the NPC car model similar to the barriers.
+loadNPCCarModel();
+
 
 
 
@@ -354,7 +462,7 @@ function spawnSkyscrapers() {
 
     // Random Y scaling for varying height.
     const randomScaleYLeft = baseScale + Math.random();  // Y between baseScale and baseScale + 1
-    const randomScaleYRight = baseScale + Math.random(); 
+    const randomScaleYRight = baseScale + Math.random();
 
     // Scale X axis to make the building wider based on its offset.
     // The farther from the road, the larger the X scale.
@@ -395,7 +503,7 @@ function updateSkyscrapers(playerZ) {
   const numOfRows = 20;
   // Total length of the skyscraper arrangement
   const totalLength = spacing * numOfRows;
-  
+
   spawnedSkyscrapers.forEach(skyscraper => {
     if (skyscraper.position.z > playerZ + recycleThreshold) {
       skyscraper.position.z -= totalLength;
@@ -415,46 +523,46 @@ function updateSkyscrapers(playerZ) {
  *///==================================================================
 
 
- const clock = new THREE.Clock();
- let brakingActive = false; // Global variable to track braking state
- 
- // FUNCTION - Updates taillight light itensities based on braking status
- function updateTailLights(isBraking) {
-   const taillightNames = ["taillight_r2", "taillight_l1", "taillight_l2", "taillight_r1"];
-   taillightNames.forEach(name => {
-     // Retrieve tail light from player_car; if not found, try scene.
-     let tailLight = null;
-     if (player_car) {
-       tailLight = player_car.getObjectByName(name);
-     }
-     if (!tailLight) {
-       tailLight = scene.getObjectByName(name);
-     }
-     if (tailLight && tailLight.userData.baseIntensity !== undefined) {
-       tailLight.intensity = isBraking
-         ? tailLight.userData.baseIntensity * 1.5  // Increases the wattage when braking
-         : tailLight.userData.baseIntensity;       // Resets to base wattage
-     }
-   });
- }
- 
- // Global turning variables (persist between frames)
- let turnAngularVelocity = 0;
- const maxTurnSpeed = 2.5;       // Maximum angular speed (radians per second)
- const turnAcceleration = 2.5;   // Angular acceleration (radians per second^2)
- const turnDamping = 0.9;        // Damping factor when no turn inputs are active
- 
- function animate() {
-   requestAnimationFrame(animate);
-   controls.update();
-   const delta = clock.getDelta();
-   world.step(1 / 60, delta, 3);
-   updateSkyscrapers(carBody.position.z);
- 
- 
-   if (player_car && carBody) {
-     // Update car speed based on controls.
-     if (keyState.forward) {
+const clock = new THREE.Clock();
+let brakingActive = false; // Global variable to track braking state
+
+// FUNCTION - Updates taillight light itensities based on braking status
+function updateTailLights(isBraking) {
+  const taillightNames = ["taillight_r2", "taillight_l1", "taillight_l2", "taillight_r1"];
+  taillightNames.forEach(name => {
+    // Retrieve tail light from player_car; if not found, try scene.
+    let tailLight = null;
+    if (player_car) {
+      tailLight = player_car.getObjectByName(name);
+    }
+    if (!tailLight) {
+      tailLight = scene.getObjectByName(name);
+    }
+    if (tailLight && tailLight.userData.baseIntensity !== undefined) {
+      tailLight.intensity = isBraking
+        ? tailLight.userData.baseIntensity * 1.5  // Increases the wattage when braking
+        : tailLight.userData.baseIntensity;       // Resets to base wattage
+    }
+  });
+}
+
+// Global turning variables (persist between frames)
+let turnAngularVelocity = .1;
+const maxTurnSpeed = 1.5;       // Maximum angular speed (radians per second)
+const turnAcceleration = 2.5;   // Angular acceleration (radians per second^2)
+const turnDamping = 0.9;        // Damping factor when no turn inputs are active
+
+function animate() {
+  requestAnimationFrame(animate);
+  controls.update();
+  const delta = clock.getDelta();
+  world.step(1 / 60, delta, 3);
+  updateSkyscrapers(carBody.position.z);
+
+
+  if (player_car && carBody) {
+    // Update car speed based on controls.
+    if (keyState.forward) {
       // Modified: Strongly reduce acceleration when turning to avoid buildup of excessive speed.
       // Previously, effectiveAcceleration was multiplied by 0.5; now we use 0.3 to further limit currentSpeed.
       let effectiveAcceleration = accelerationRate;
@@ -483,98 +591,100 @@ function updateSkyscrapers(playerZ) {
       }
     }
 
-     // Distance Traveled
-     if (currentSpeed > 0) {
-         distanceTraveled += currentSpeed * delta;
-     }
+    // Distance Traveled
+    if (currentSpeed > 0) {
+      distanceTraveled += currentSpeed * delta;
+    }
 
-     const distanceMiles = distanceTraveled * 0.621371;
-     distanceDisplay.textContent = `Distance: ${distanceMiles.toFixed(2)} mi`;
+    const distanceMiles = distanceTraveled * 0.621371;
+    distanceDisplay.textContent = `Distance: ${distanceMiles.toFixed(2)} mi`;
 
 
 
-       // --- Smoother Turning Implementation ---
-     // Increase or decrease turnAngularVelocity based on left/right inputs.
-     if (keyState.left) {
-       turnAngularVelocity += turnAcceleration * delta;
-       if (turnAngularVelocity > maxTurnSpeed) turnAngularVelocity = maxTurnSpeed;
-     } else if (keyState.right) {
-       turnAngularVelocity -= turnAcceleration * delta;
-       if (turnAngularVelocity < -maxTurnSpeed) turnAngularVelocity = -maxTurnSpeed;
-     } else {
-       // When no turn key is pressed, apply damping.
-       turnAngularVelocity *= turnDamping;
-       if (Math.abs(turnAngularVelocity) < 0.001) turnAngularVelocity = 0;
-     }
- 
-     // Compute the small incremental turn angle for this frame.
-     const turnAngle = turnAngularVelocity * delta;
-     const turnQuaternion = new THREE.Quaternion();
-     turnQuaternion.setFromAxisAngle(new THREE.Vector3(0, 1, 0), turnAngle);
-     // Apply the rotation increment to the car's orientation.
-     player_car.quaternion.multiplyQuaternions(turnQuaternion, player_car.quaternion);
-     // Copy the updated orientation to the physics body.
-     carBody.quaternion.copy(player_car.quaternion);
- 
-     // --- Update the Car's Forward Velocity ---
-     const forwardVector = new THREE.Vector3(0, 0, -1);
-     forwardVector.applyQuaternion(player_car.quaternion).normalize();
- 
-     // If turning - reduce speed
-     let effectiveSpeed = currentSpeed;
-     if (keyState.left || keyState.right) {
-       // Determine a reduction factor based on how strongly the car is turning.
-       const reductionFactor = 0.5 * Math.min(Math.abs(turnAngularVelocity) / maxTurnSpeed, 1);
-       effectiveSpeed = currentSpeed * (1 - reductionFactor);
-     }
-     // Set the physics body's velocity in the direction the car is facing.
-     carBody.velocity.set(forwardVector.x * effectiveSpeed, carBody.velocity.y, forwardVector.z * effectiveSpeed);
- 
-     // Compute and set the visual offset for the car model.
-     const drawOffset = carOffsetY - 0.25;
-     player_car.position.copy(carBody.position).add(new THREE.Vector3(0, drawOffset, 0));
- 
-     // Update visual infinite road
-     updateRoad(carBody.position.z);
- 
-     // Animate Tire rotation based on forward movement
-     const tireRadius = 0.3;
-     const angularDelta = (currentSpeed * delta) / tireRadius;
-     tires.forEach(tire => {
-       if (tire) {
-         tire.rotation.x -= angularDelta / 3;
-       }
-     });
- 
-     // --- Updated Camera Positioning (Directly Behind the Car with Lag Only on Turning Axis) ---
-     const cameraDistanceBehind = -2.5; 
-     const cameraHeight = 2.0;          
-     const carDirection = new THREE.Vector3();
-     player_car.getWorldDirection(carDirection);
- 
-     // Place the camera behind the car (opposite to its forward vector)
-     const cameraOffset = carDirection.clone().negate().multiplyScalar(cameraDistanceBehind);
-     const desiredCameraPos = player_car.position.clone().add(cameraOffset);
-     desiredCameraPos.y += cameraHeight;
- 
-     // Apply smoothing (lag) on the X (and Y, if desired) axes, but snap the Z coordinate instantly.
-     const cameraSmoothFactor = 0.1;
-     camera.position.x = THREE.MathUtils.lerp(camera.position.x, desiredCameraPos.x, cameraSmoothFactor);
-     camera.position.y = THREE.MathUtils.lerp(camera.position.y, desiredCameraPos.y, cameraSmoothFactor);
-     camera.position.z = desiredCameraPos.z;
- 
-     const adjustedPosition = player_car.position.clone();
-     adjustedPosition.y += 2.25;
-     camera.lookAt(adjustedPosition);
-   }
-     // === Update HUD ===
-     const speedMPH = currentSpeed * 0.621371;
-     speedDisplay.textContent = `Speed: ${Math.round(speedMPH)} mph`;
-     brakeStatus.style.display = keyState.brake ? 'block' : 'none';
-   renderer.render(scene, camera);
- }
- animate();
- 
+    // --- Smoother Turning Implementation ---
+    // Increase or decrease turnAngularVelocity based on left/right inputs.
+    if (keyState.left) {
+      turnAngularVelocity += turnAcceleration * delta;
+      if (turnAngularVelocity > maxTurnSpeed) turnAngularVelocity = maxTurnSpeed;
+    } else if (keyState.right) {
+      turnAngularVelocity -= turnAcceleration * delta;
+      if (turnAngularVelocity < -maxTurnSpeed) turnAngularVelocity = -maxTurnSpeed;
+    } else {
+      // When no turn key is pressed, apply damping.
+      turnAngularVelocity *= turnDamping;
+      if (Math.abs(turnAngularVelocity) < 0.001) turnAngularVelocity = 0;
+    }
+
+    // Compute the small incremental turn angle for this frame.
+    const turnAngle = turnAngularVelocity * delta;
+    const turnQuaternion = new THREE.Quaternion();
+    turnQuaternion.setFromAxisAngle(new THREE.Vector3(0, 1, 0), turnAngle);
+    // Apply the rotation increment to the car's orientation.
+    player_car.quaternion.multiplyQuaternions(turnQuaternion, player_car.quaternion);
+    // Copy the updated orientation to the physics body.
+    carBody.quaternion.copy(player_car.quaternion);
+
+    // --- Update the Car's Forward Velocity ---
+    const forwardVector = new THREE.Vector3(0, 0, -1);
+    forwardVector.applyQuaternion(player_car.quaternion).normalize();
+
+    // If turning - reduce speed
+    let effectiveSpeed = currentSpeed;
+    if (keyState.left || keyState.right) {
+      // Determine a reduction factor based on how strongly the car is turning.
+      const reductionFactor = 0.5 * Math.min(Math.abs(turnAngularVelocity) / maxTurnSpeed, 1);
+      effectiveSpeed = currentSpeed * (1 - reductionFactor);
+    }
+    // Set the physics body's velocity in the direction the car is facing.
+    carBody.velocity.set(forwardVector.x * effectiveSpeed, carBody.velocity.y, forwardVector.z * effectiveSpeed);
+
+    // Compute and set the visual offset for the car model.
+    const drawOffset = carOffsetY - 0.25;
+    player_car.position.copy(carBody.position).add(new THREE.Vector3(0, drawOffset, 0));
+
+    // Update visual infinite road
+    updateRoad(carBody.position.z);
+
+    // Animate Tire rotation based on forward movement
+    const tireRadius = 0.3;
+    const angularDelta = (currentSpeed * delta) / tireRadius;
+    tires.forEach(tire => {
+      if (tire) {
+        tire.rotation.x -= angularDelta / 3;
+      }
+    });
+
+    // --- Updated Camera Positioning (Directly Behind the Car with Lag Only on Turning Axis) ---
+    const cameraDistanceBehind = -2.5;
+    const cameraHeight = 2.0;
+    const carDirection = new THREE.Vector3();
+    player_car.getWorldDirection(carDirection);
+
+    // Place the camera behind the car (opposite to its forward vector)
+    const cameraOffset = carDirection.clone().negate().multiplyScalar(cameraDistanceBehind);
+    const desiredCameraPos = player_car.position.clone().add(cameraOffset);
+    desiredCameraPos.y += cameraHeight;
+
+    // Apply smoothing (lag) on the X (and Y, if desired) axes, but snap the Z coordinate instantly.
+    const cameraSmoothFactor = 0.1;
+    camera.position.x = THREE.MathUtils.lerp(camera.position.x, desiredCameraPos.x, cameraSmoothFactor);
+    camera.position.y = THREE.MathUtils.lerp(camera.position.y, desiredCameraPos.y, cameraSmoothFactor);
+    camera.position.z = desiredCameraPos.z;
+
+    const adjustedPosition = player_car.position.clone();
+    adjustedPosition.y += 2.25;
+    camera.lookAt(adjustedPosition);
+  }
+  // === Update HUD ===
+  const speedMPH = currentSpeed * 1.5;
+  speedDisplay.textContent = `Speed: ${Math.round(speedMPH)} mph`;
+  brakeStatus.style.display = keyState.brake ? 'block' : 'none';
+  renderer.render(scene, camera);
+
+  
+}
+animate();
+
 
 
 

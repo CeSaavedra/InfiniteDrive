@@ -4,36 +4,36 @@
 
 This project is a 3D web-based driving simulator game that allows you to drive on an endless, four-laned highway. As you cruise, the game displays a visually pleasing urban environment with dynamic city lights. The player controls their designated car with the ability to turn, accelerate, and decelerate. The objective is simply to enjoy an infinite driving experience as the road and game environment continue endlessly.
 
-## Completed Implementations as of 4/30
+## Completed Implementations as of 5/5
 
 - 3D Model of Player’s Car (Unpolished)
-- Created continuous road and continuously generated environment
-- Headlights and functional taillights
+- Player headlights and taillights
+- Player tires rotate based on player’s speed
+- Player Shift Left-to-Right Controls (Unpolished)
+- Player Acceleration and Deceleration Controls
+- Player HUD - Displays MPH and total distance
+- Created continuous road
+- Created continuous buildings with blooming light windows
+- Created continuous road barrier with collision
 - Implemented gravity and ground collision detection
-- Acceleration and Deceleration Controls
-- Left-to-Right Turning Mechanics (Unpolished)
-- Tires rotate corresponding to the player’s speed
+- Created NPC 3D car model
+- Simple NPC car spawn set-up
 
-## To-Do / Timeline
 
-### May 1st
-- Implement glow/light effects to building windows
-- Add collision to road barrier
-- Implement 3D highway barriers and buildings along the roadside
+## To-Do
 
-### May 4th
-- Create NPC 3D car model
-- Apply texture to and finalize the 3D player car model
-- Create a HUD – Add UI to display miles per hour
+### Task Set 1
+- Randomize colors of NPC cars
+- Add tire rotation to NPC cars based on speed
+- Add varied speed to NPC cars
+- Allow NPC cars to brake due to cars ahead
+- Optimize spawning of NPC cars so that there are enough cars where it doesn't lag
 
-### May 7th
-- Define NPC car behavior and physics
-- Randomize colors of NPC cars  
-- HUD – Add distance traveled
-
-### May 12th
-- Add tire particle effects + Possibly exhaust particle effects
-- Polish driving controls
+### Task Set 2
+- Polish MPH to make sense
+- Change Distance to "Score" and divide it
+- Detect collision then freezes then provides 
+- Create UI (black & white) that prompts user to retry (retry should be red font color to resmble GTA V famous "wasted" UI)
 
 ## Possible Inclusions
 
