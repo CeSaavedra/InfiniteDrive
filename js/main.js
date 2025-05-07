@@ -57,6 +57,8 @@ world.addBody(groundBody); // Creates invisible collidable plane on the ground
 // === HUD Elements ===
 const speedDisplay = document.getElementById('speedDisplay');
 const brakeStatus = document.getElementById('brakeStatus');
+const scoreDisplay = document.getElementById('scoreDisplay');
+
 
 
 /** ======================= LOAD 3D CAR MODELS ========================
@@ -70,6 +72,8 @@ let player_car; // Declares Player's Car
 let carBody;  // Car's collision body
 let carOffsetY = 0; // Offset computed from the model's bounding box for proper alignment
 let tires = []; // Array to store tire meshes
+const npcCars = [];
+
 
 // Speed values based on Unit per Second
 let currentSpeed = 40;         // Initial Speed
@@ -78,7 +82,7 @@ const accelerationRate = 15;   // Speed increment per sec when accelerating
 const brakeDecelerationRate = 25; // Speed decrement per sec when braking
 
 // Distance traveled
-let distanceTraveled = 0;
+let scoreValue = 0;
 
 const loader = new GLTFLoader();
 loader.load(
@@ -105,6 +109,21 @@ loader.load(
     carBody.fixedRotation = true;
     carBody.updateMassProperties();
     world.addBody(carBody);
+
+    //Car collision
+    world.addEventListener('beginContact', function(event) {
+      const a = event.bodyA;
+      const b = event.bodyB;
+
+      if (
+          !gameOver &&
+          (a === carBody || b === carBody) &&
+          a !== groundBody && b !== groundBody
+      ) {
+        triggerGameOver();
+      }
+
+    });
 
     // Retrieve each Tire mesh from Car model hierarchy.
     const frontLeftTire = player_car.getObjectByName("front_l_tire");
@@ -199,13 +218,36 @@ function spawnNPCCar(segment) {
 
   // Pick a random Z offset within the segment.
   const offsetZ = THREE.MathUtils.randFloat(-segmentLength / 4, segmentLength / 4);
+  // To try to make the cars go forward
+  const box = new THREE.Box3().setFromObject(npcCar);
+  const height = box.max.y - box.min.y;
+  const centerY = (box.max.y + box.min.y) / 2;
+  const yOffset = -centerY + height/2;
 
   // Set the NPC car’s position relative to the segment coordinates.
-  npcCar.position.set(laneX, 0.36, offsetZ);
+  //npcCar.position.set(laneX, 0.36, offsetZ);
+  npcCar.position.set(laneX, yOffset, offsetZ);
+
 
   // Add the NPC car as a child of the segment.
-  segment.add(npcCar);
+  scene.add(npcCar);
   segment.userData.npcCar = npcCar;
+
+  // === Add physics ===
+  const npcCarShape = new CANNON.Box(new CANNON.Vec3(0.5, 0.25, 1));
+  const npcCarBody = new CANNON.Body({ mass: 0 });
+  npcCarBody.addShape(npcCarShape);
+  npcCarBody.position.set(
+      laneX,
+      0.61, // raised Y: 0.36 + half height
+      segment.position.z + offsetZ
+  );
+  world.addBody(npcCarBody);
+
+  npcCars.push({ mesh: npcCar, body: npcCarBody });
+
+  // Prevent double spawning
+  segment.userData.npcSpawned = true;
 }
 
 
@@ -374,6 +416,9 @@ function updateRoad(playerPositionZ) {
     if (segment.position.z > playerPositionZ + segmentLength) {
       segment.position.z -= numSegments * segmentLength;
 
+      //Part of to make cars spawn randomly because cars weren't spawning at one point pt 1
+      segment.userData.npcSpawned = false;
+
       // Re-add visual barriers if needed.
       if (globalBarrierModel && !segment.userData.hasBarriers) {
         addBarriersToSegment(segment);
@@ -382,11 +427,15 @@ function updateRoad(playerPositionZ) {
       addCollidableWallsToSegment(segment);
 
       // For recycled segments, update the NPC car's placement.
-      if (segment.userData.npcCar) {
+      /*if (segment.userData.npcCar) {
         const laneIndex = Math.floor(Math.random() * laneCount);
         const laneX = -roadTotalWidth / 2 + laneWidth / 2 + laneIndex * laneWidth;
         const offsetZ = THREE.MathUtils.randFloat(-segmentLength / 4, segmentLength / 4);
         segment.userData.npcCar.position.set(laneX, 0.36, offsetZ);
+      }*/
+      //Part of to make cars spawn randomly because cars weren't spawning at one point pt 2
+      if (Math.random() < 0.75) {
+        spawnNPCCar(segment);
       }
     }
   });
@@ -552,11 +601,55 @@ const maxTurnSpeed = 1.5;       // Maximum angular speed (radians per second)
 const turnAcceleration = 2.5;   // Angular acceleration (radians per second^2)
 const turnDamping = 0.9;        // Damping factor when no turn inputs are active
 
+
+//Collision detection
+function triggerGameOver() {
+  gameOver = true;
+
+  // Freeze the car
+  carBody.velocity.set(0, 0, 0);
+  carBody.angularVelocity.set(0, 0, 0);
+
+  const finalMiles = Math.floor(scoreValue * 0.5);
+  document.getElementById('finalScore').textContent = `Score: ${finalMiles}`;
+
+
+
+  // Show "WASTED" UI overlay
+  document.getElementById('gameOverOverlay').style.display = 'flex';
+  document.getElementById('wastedText').textContent = 'GG BRUH';
+  //document.getElementById('wastedText').style.color = 'red';
+
+}
+
+//Try again button
+document.getElementById('retryBtn').addEventListener('click', () => {
+  window.location.reload();
+});
+
+window.addEventListener('keydown', (event) => {
+  const retryBtn = document.getElementById('retryBtn');
+  const overlayVisible = document.getElementById('gameOverOverlay').style.display === 'flex';
+
+  if (overlayVisible && (event.code === 'Enter' || event.code === 'Space')) {
+    retryBtn.click();  // Simulate button click
+  }
+});
+
+let gameOver = false;
+
+
 function animate() {
   requestAnimationFrame(animate);
   controls.update();
   const delta = clock.getDelta();
   world.step(1 / 60, delta, 3);
+
+  //Part of game over screen
+  if (gameOver) {
+    renderer.render(scene, camera);
+    return;
+  }
   updateSkyscrapers(carBody.position.z);
 
 
@@ -593,11 +686,11 @@ function animate() {
 
     // Distance Traveled
     if (currentSpeed > 0) {
-      distanceTraveled += currentSpeed * delta;
+      scoreValue += currentSpeed * delta;
     }
 
-    const distanceMiles = distanceTraveled * 0.621371;
-    distanceDisplay.textContent = `Distance: ${distanceMiles.toFixed(2)} mi`;
+    const score = Math.floor(scoreValue * 0.5); // Customize multiplier as needed
+    scoreDisplay.textContent = `Score: ${score}`;
 
 
 
@@ -674,6 +767,24 @@ function animate() {
     const adjustedPosition = player_car.position.clone();
     adjustedPosition.y += 2.25;
     camera.lookAt(adjustedPosition);
+    //Part of to make cars spawn randomly because cars weren't spawning at one point pt 3
+    // --- Sync and clean up NPC cars ---
+    const cleanupZ = carBody.position.z + 10;
+
+    for (let i = npcCars.length - 1; i >= 0; i--) {
+      const npc = npcCars[i];
+
+      // If NPC is far behind the player, remove it
+      if (npc.body.position.z > cleanupZ) {
+        scene.remove(npc.mesh);
+        world.removeBody(npc.body);
+        npcCars.splice(i, 1);
+      } else {
+        // Keep mesh in sync with physics body
+        npc.mesh.position.copy(npc.body.position);
+        npc.mesh.quaternion.copy(npc.body.quaternion);
+      }
+    }
   }
   // === Update HUD ===
   const speedMPH = currentSpeed * 1.5;
@@ -681,7 +792,11 @@ function animate() {
   brakeStatus.style.display = keyState.brake ? 'block' : 'none';
   renderer.render(scene, camera);
 
-  
+  //Sync all npc cars
+  npcCars.forEach(npc => {
+    npc.mesh.position.copy(npc.body.position);
+    npc.mesh.quaternion.copy(npc.body.quaternion);
+  });
 }
 animate();
 
