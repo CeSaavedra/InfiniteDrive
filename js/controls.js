@@ -1,4 +1,3 @@
-// Create an object to track the current key states.
 const keyState = {
   forward: false, // True when "W" is pressed.
   brake: false,   // True when "S" is pressed.
