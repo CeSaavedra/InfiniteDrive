@@ -1,4 +1,6 @@
-# Infinite Drive
+# Infinite Drive v0.5.0
+
+![Image of two low-poly cars rendered in Blender](assets/images/readme-thumbnail.png)
 
 ## Project Description
 
@@ -11,7 +13,7 @@ This project is a 3D web-based driving simulator game that allows you to drive o
 - GLTFLoader.js
 - CANNON
 
-## Completed Implementations
+## Current Implementations
 
 - 3D Model of Player’s Car 
 - Player headlights and taillights
@@ -29,3 +31,19 @@ This project is a 3D web-based driving simulator game that allows you to drive o
 - Implemented efficient NPC spawn system (spawned on each road segment)
 - Implemented an end-game UI (with final score) that allows player to restart after colliding
 - Implemented street lights using an alternate version of the base road barrier model
+
+## Planned Implementations for v1.0.0
+
+- ~~Smooth shade both NPC car and PLAYER car~~
+- ~~Allow player to input desired Car color and leaderboard name~~
+- Create visually pleasing Start game screen
+- Prevent player from driving opposite direction of road
+- Spawn NPC car spawns behind slow Player
+- Create more 3D skyscraper models
+- Allow pause menu using ESC key
+- Create rechargeable nitrous particle effect + speed boost
+- Create visually pleasing HUD
+- Create visually pleasing Retry screen
+- Create visually pleasing leaderboard
+- Connect leaderboard to firebase (name + distance)
+

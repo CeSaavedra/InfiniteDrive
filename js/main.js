@@ -5,7 +5,6 @@ import { OrbitControls } from 'https://cdn.skypack.dev/three@0.129.0/examples/js
 import * as CANNON from 'https://cdn.skypack.dev/cannon-es';
 import { keyState } from './controls.js';
 
-
 // ------------------ SCENE ------------------
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x070610); // Scene Background Color
@@ -74,6 +73,7 @@ const scoreDisplay = document.getElementById('scoreDisplay');
 // ---------------- GLOBAL VARIABLES ----------------
 // Player car values
 let player_car;                         // Declares Player's Car
+let menuModel;
 let carBody;                            // Declares Car's collision body
 let carOffsetY = 0;                     // Offset computed from model's bounding box (for alignment)
 let tires = [];                         // Array to store tire meshes
@@ -108,7 +108,7 @@ let scoreValue = 0;
 // ==================== LOAD PLAYER CAR MODEL ====================
 const loader = new GLTFLoader();
 loader.load(
-  './assets/models/prototype_car.glb', // Player Car Model Path
+  './assets/models/player_car.glb', // Player Car Model Path
   function (gltf) {
     player_car = gltf.scene;
     scene.add(player_car);
@@ -242,7 +242,7 @@ function spawnNPCCar(segment) {
   if (mainFrame) {
 
     // Array of possible NPC car colors
-    const colors = [0xCA1818, 0x254EA3, 0xE8B221, 0xD5D5D5];
+    const colors = [0x9F1616, 0x084DDD, 0xF1B000, 0xD5D5D5, 0x132116, 0x071E49, 0xD77500, 0x330078];
 
     const chosenColor = colors[Math.floor(Math.random() * colors.length)];
     mainFrame.traverse(child => {
@@ -542,7 +542,7 @@ function addCollidableWallsToSegment(segment) {
       wallHeight / 2,
       zPos
     );
-    rightWallBody.isWall = true; 
+    rightWallBody.isWall = true;
     world.addBody(rightWallBody);
 
     segment.userData.wallBodies = [leftWallBody, rightWallBody];
@@ -835,20 +835,156 @@ function updateTailLights(isBraking) {
     }
   });
 }
+const startOverlay = document.getElementById('startOverlay');
+const startBtn = document.getElementById('startBtn');
+
+let gameStarted = false;
+const menuScene = new THREE.Scene();
+let menuCamera, menuControls;
+let bobTime = 0;
+
+new GLTFLoader().load('assets/models/menu-screen.glb', gltf => {
+  // add the menu model to its own scene
+  menuModel = gltf.scene;
+
+  menuScene.add(gltf.scene);
+
+
+  
+  // grab the Blender camera node (for FOV, near/far, etc.)
+  const srcCam = gltf.scene.getObjectByName('blender_cam') ||
+    gltf.cameras.find(c => c.isCamera);
+  if (!srcCam) {
+    return console.error('No camera named "blender_cam" in menu-screen.glb');
+  }
+
+  // clone the camera and then override its transform
+  menuCamera = srcCam.clone(true);
+  menuCamera.position.set(0.826, 2.826, 0.597);
+  menuCamera.quaternion.setFromRotationMatrix(
+    new THREE.Matrix4().lookAt(
+      menuCamera.position,
+      new THREE.Vector3(0.829, 2.824, 0.622),
+      menuCamera.up
+    )
+  );
+  menuCamera.updateProjectionMatrix();
+  menuScene.add(menuCamera);
+
+  // attach OrbitControls and fix its target
+  menuControls = new OrbitControls(menuCamera, renderer.domElement);
+  menuControls.enableDamping = true;
+  menuControls.target.set(0.829, 2.824, 0.622);
+  menuControls.update();
+
+
+});
+
+
+function resetState() {
+  currentSpeed = 40;
+  scoreValue = 0;
+  gameOver = false;
+  introCameraAnimation = true;
+  introTimer = 0;
+}
+
+function initGame() {
+  if (gameStarted) return;
+  gameStarted = true;
+  startOverlay.style.display = 'none';
+  resetState();
+  // no need to remove menuScene; we switch render calls
+}
 
 
 
+startBtn.addEventListener('click', initGame);
+document.addEventListener('DOMContentLoaded', () => {
+  const playContainer   = document.querySelector('.menu__play');
+  const instrContainer  = document.querySelector('.menu__instructions');
+  const optionsList     = document.querySelector('.menu__options');
+  const playGameBtn     = document.getElementById('playGameBtn');
+  const howToPlayBtn    = document.getElementById('howToPlayBtn');
+  const playBackBtn     = document.getElementById('playBackBtn');
+  const instrBackBtn    = document.getElementById('instrBackBtn');
+  const githubBtn       = document.getElementById('githubBtn');
 
-/** =========================== ANIMATIONS ==========================
- *  This segment implements the main animation loop for the game.
- *  It updates the physics simulation, processes user inputs to control
- *  acceleration, braking, and turning, and synchronizes visual elements
- *  such as car orientation, tire rotation, tail light intensity, and
- *  camera positioning with the underlying physics.
- *///==================================================================
+  // FORCE initial visibility
+  optionsList.style.display     = 'flex';
+  playContainer.style.display   = 'none';
+  instrContainer.style.display  = 'none';
 
+  playGameBtn.addEventListener('click', () => {
+    optionsList.style.display    = 'none';
+    playContainer.style.display  = 'flex';
+  });
+
+  howToPlayBtn.addEventListener('click', () => {
+    optionsList.style.display      = 'none';
+    instrContainer.style.display   = 'flex';
+  });
+
+  playBackBtn.addEventListener('click', () => {
+    playContainer.style.display  = 'none';
+    optionsList.style.display    = 'flex';
+  });
+
+  instrBackBtn.addEventListener('click', () => {
+    instrContainer.style.display = 'none';
+    optionsList.style.display    = 'flex';
+  });
+
+  githubBtn.addEventListener('click', e => {
+    window.open(e.currentTarget.dataset.url, '_blank', 'noopener');
+  });
+});
+
+// after your player_car is loaded and added to scene…
+
+// ─── 3) Utility: traverse & apply color ───────────────────────
+function colorize(root, hex) {
+  root.traverse(child => {
+    if (!child.isMesh) return;
+    const mats = Array.isArray(child.material)
+      ? child.material
+      : [child.material];
+    mats.forEach(m => {
+      if (m.name === 'MAIN' || m.name === 'Material.011') {
+        m.color.setHex(hex);
+      }
+    });
+  });
+}
+
+// ─── 4) Hook up your color buttons ────────────────────────────
+document.querySelectorAll('.color-circle').forEach(btn => {
+  btn.addEventListener('click', () => {
+    const hex = new THREE.Color(btn.dataset.color).getHex();
+
+    // apply to player car…
+    if (player_car) colorize(player_car, hex);
+
+    // …and to menu-screen preview
+    if (menuModel) colorize(menuModel, hex);
+  });
+});
 function animate() {
   requestAnimationFrame(animate);
+
+  // render the menu until the game starts
+  if (!gameStarted) {
+    // slower time advance
+    bobTime += 0.002;
+
+    const bobY = Math.cos(bobTime * 1.1) * 0.001;
+    menuCamera.position.y = 2.826 + bobY;
+
+    menuControls.update();
+    renderer.render(menuScene, menuCamera);
+    return;
+  }
+
   controls.update();
   const delta = clock.getDelta();
   world.step(1 / 60, delta, 3);
@@ -857,7 +993,7 @@ function animate() {
 
   if (gameOver) { // If game over (player crashed)
     document.querySelector("canvas").style.filter = "grayscale(1)"; // Black & white filter
-    maxSpeed = 0;                                                       
+    maxSpeed = 0;
   }
 
   // ---------- Input Controls ----------
@@ -868,7 +1004,7 @@ function animate() {
       let effectiveAcceleration = accelerationRate * speedFactor;
 
       // If turning, reduce acceleration more
-      if (keyState.left || keyState.right) { 
+      if (keyState.left || keyState.right) {
         effectiveAcceleration *= 0.1;
       }
 
@@ -1015,7 +1151,7 @@ function animate() {
       }
     } else if (player_car) {
 
-      const cameraDistanceBehind = -2.5; 
+      const cameraDistanceBehind = -2.5;
       const carDirection = new THREE.Vector3();
       player_car.getWorldDirection(carDirection);
       const normalCameraHeight = 2.0;
@@ -1056,3 +1192,14 @@ function animate() {
   renderer.render(scene, camera);
 }
 animate();
+
+/**
+ * 
+    <!-- === HUD === -->
+    <div id="hud">
+      <div id="speedDisplay">Speed: 0 km/h</div>
+      <div id="brakeStatus">Braking</div>
+      <div id="scoreDisplay">Score: 0 mi</div>
+    </div>
+
+ */

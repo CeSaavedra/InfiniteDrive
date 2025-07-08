@@ -1,3 +1,21 @@
+.roboto-flex-semibold {
+  font-family: "Roboto Flex", sans-serif;
+  font-optical-sizing: auto;
+  font-weight: 600;
+  font-style: normal;
+  font-variation-settings:
+    "slnt" 0,
+    "wdth" 100,
+    "GRAD" 0,
+    "XOPQ" 96,
+    "XTRA" 468,
+    "YOPQ" 79,
+    "YTAS" 750,
+    "YTDE" -203,
+    "YTFI" 738,
+    "YTLC" 514,
+    "YTUC" 712;
+}
 body {
     margin: 0;
     background-color: black;
@@ -120,4 +138,199 @@ canvas {
 @keyframes fadeInScore {
   from { opacity: 0; transform: translateY(10px); }
   to   { opacity: 1; transform: translateY(0); }
+}
+
+/* Full-screen transparent overlay above the scene */
+#startOverlay {
+  position: fixed;       /* Stay relative to the viewport */
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: row;   /* Arrange children in a row */
+  background: transparent;
+  z-index: 1000;
+}
+
+/* Left pane: 40% width, center its contents */
+.menu__nav_container {
+  width: 40%;
+  height: 100%;
+  display: flex;
+  align-items: center;    /* Vertical centering */
+  justify-content: left;/* Horizontal centering */
+  padding-left: 5%;
+}
+
+/* Right pane: 60% width, empty for now */
+.menu__empty {
+  width: 60%;
+  height: 100%;
+}
+
+.menu__options {
+  list-style: none;
+  margin: 20px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.menu__options button,
+.menu__options .menu-btn {
+  width: 100%;
+  padding: 10px 0;
+  background: transparent;
+  padding-bottom:5%;
+  border: none;
+  cursor: pointer;
+  text-align: left;
+  font-size: 2.5rem;
+  font-weight: 1000;
+  color: #fff;
+}
+
+.menu__options .menu-btn {
+  text-decoration: none;
+  color: inherit;
+}
+
+.menu__option:hover {
+  -webkit-text-fill-color: rgb(255, 214, 110);
+  text-shadow: 2px 0 8px rgba(255, 255, 255, 0.356);
+}
+
+
+
+/* ensure nav is the positioning context */
+.menu__nav {
+  position: relative;
+  height:100%;
+  width:100%;
+  align-content: center;
+}
+
+.menu__play,
+.menu__instructions {
+  display: none;         /* hide on load */
+  position: relative;    /* overlay the parent */
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 70%;
+  border-radius: 10%;
+  flex-direction: column;
+  align-items: center;
+  align-content: center;
+  justify-content: center;
+  z-index: 1001;
+  background: rgba(0,0,0,0.9);
+}
+
+
+/* back-button styling */
+.back-btn {
+  position: absolute;
+  top: 1rem;    /* adjust as needed */
+  left: 1rem;   /* adjust as needed */
+  margin: 0;    /* clear any flex margins */
+  z-index: 1002;
+  font-size: 1.3rem;
+  border:none;
+  color:#f3f3f3cb;
+  background: none;
+  font-weight: 800;
+}
+
+/* optional text inside those panels */
+.menu__text {
+  color: #fff;
+  font-size: 1.25rem;
+  text-align: center;
+  margin-bottom: 2%;
+}
+
+
+.color-picker {
+  position: relative;
+  gap: 0.5rem;
+  word-spacing: 1rem;
+  height:80%;
+  width:100%;
+  top:0;
+  display:flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.color-circle {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border: 2px solid #fff;
+  background-color: currentColor;
+  cursor: pointer;
+}
+
+/* example background colors via attribute selector */
+.color-circle[data-color="red"]    { background-color: red; }
+.color-circle[data-color="orange"] { background-color: orange; }
+.color-circle[data-color="yellow"] { background-color: yellow; }
+.color-circle[data-color="green"]  { background-color: green; }
+.color-circle[data-color="blue"]   { background-color: blue; }
+.color-circle[data-color="indigo"] { background-color: indigo; }
+.color-circle[data-color="violet"] { background-color: violet; }
+.color-circle[data-color="black"]  { background-color: black; }
+
+.menu__play_lbinput {
+  position:relative;
+  height:40%;
+  width:100%;
+  
+  display:flex;
+  flex-direction: column;
+  justify-content: center;
+}
+.menu__play_color {
+  position: relative;
+  height:40%;
+  width:100%;
+  display:flex;
+  flex-direction: column;
+  align-items: center;
+}
+.menu__play_start {
+  position: relative;
+  display: flex;
+  height:20%;
+  width:100%;
+  align-items: center;
+  justify-content: center;
+  align-content: center;
+  
+}
+#startBtn{
+  font-size: 1.5rem;
+  border:solid 1px white;
+  border-radius: 8%;
+  color:#e7e7e7;
+  background: none;
+  font-weight: 800;
+}
+.menu__text {
+  position: relative;
+  top:0rem;
+  height:40%;
+  width:100%;
+  font-size: 1.8rem;
+}
+#leaderboardName {
+  height:20%;
+  width:10%;
+  margin-left: auto;
+  margin-right: auto;
+  font-size:1.8rem;
+  border-radius: 10%;
 }

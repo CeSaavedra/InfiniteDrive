@@ -6,14 +6,96 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Infinite Drive</title>
   <link rel="stylesheet" href="css/style.css" />
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Roboto+Flex:opsz,wght@8..144,100..1000&display=swap"
+    rel="stylesheet">
 </head>
 
 <body>
   <main>
     <div id="container3D"></div>
 
+
+    <div id="startOverlay">
+      <div class="menu__nav_container">
+        <div class="menu__nav">
+
+          <!-- PLAY screen -->
+          <div class="menu__play roboto-flex-semibold"
+            style="display: flex; flex-direction: column; align-items: center;">
+            <button class="back-btn roboto-flex-semibold" id="playBackBtn">← BACK</button>
+
+            <div class="menu__play_lbinput">
+              <div class="menu__text">
+              <p class="roboto-flex-semibold">Leaderboard Name</p>
+              </div>
+            
+              <!-- Text Input Box (max 2 chars, A–Z & 0–9 only) -->
+              <input class="roboto-flex-semibold" type="text" id="leaderboardName" maxlength="2" pattern="[A-Z0-9]{1,2}"
+                placeholder="AA" title="2 chars max, A–Z & 0–9" />
+            </div>
+            <div class="menu__play_color">
+              <p class="menu__text roboto-flex-semibold">Choose Car Color</p>
+              <!-- 8 colored circles (buttons) -->
+              <div class="color-picker">
+                <div class="color-picker-row-1">
+                  <button class="color-circle" data-color="#A43600" style="color:#ff3700"></button>
+                  <button class="color-circle" data-color="#A43600" style="color:#ff9d00"></button>
+                  <button class="color-circle" data-color="#dbb51e" style="color:#ffe57d"></button>
+                  <button class="color-circle" data-color="#050505" style="color:#050505"></button>
+                </div>
+                <div class="color-picker-row-2">
+                  <button class="color-circle" data-color="#0039bf" style="color:#004cff"></button>
+                  <button class="color-circle" data-color="#4f8100" style="color:#98ff37"></button>
+                  <button class="color-circle" data-color="#a63e3e" style="color:#ff9696"></button>
+                  <button class="color-circle" data-color="#6f6f6f" style="color:#E4E4E4"></button>
+                </div>
+              </div>
+            </div>
+
+            <div class="menu__play_start">
+              <button id="startBtn">Start Game</button>
+            </div>
+          </div>
+
+
+          <!-- INSTRUCTIONS screen -->
+          <div class="menu__instructions roboto-flex-semibold" style="display: none;">
+            <button class="back-btn roboto-flex-semibold" id="instrBackBtn">← BACK</button>
+            <!-- your instructions content here -->
+            <p class="menu__text">Instructions placeholder</p>
+          </div>
+
+          <!-- original start button (if you still need it) -->
+
+          <!-- main menu options -->
+          <ul class="menu__options roboto-flex-semibold">
+            <li>
+              <button type="button" class="menu__option" id="playGameBtn">
+                PLAY GAME
+              </button>
+            </li>
+            <li>
+              <button type="button" class="menu__option" id="howToPlayBtn">
+                HOW TO PLAY
+              </button>
+            </li>
+            <li>
+              <button type="button" class="menu__option" id="githubBtn" data-url="https://github.com/CeSaavedra">
+                GITHUB
+              </button>
+            </li>
+          </ul>
+
+        </div>
+      </div>
+      <div class="menu__empty"></div>
+    </div>
+
+
     <!-- === HUD === -->
-    <div id="hud">
+    <div id="hud" style="display: none;">
       <div id="speedDisplay">Speed: 0 km/h</div>
       <div id="brakeStatus">Braking</div>
       <div id="scoreDisplay">Score: 0 mi</div>
