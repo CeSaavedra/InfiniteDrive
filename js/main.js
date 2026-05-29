@@ -66,7 +66,6 @@ world.addBody(groundBody); // Adds grounded invisible collidable plane to the sc
 
 // ---------------- HUD ELEMENTS ----------------
 const speedDisplay = document.getElementById('speedDisplay');
-const brakeStatus = document.getElementById('brakeStatus');
 const scoreDisplay = document.getElementById('scoreDisplay');
 
 
@@ -892,6 +891,8 @@ function resetState() {
 function initGame() {
   if (gameStarted) return;
   gameStarted = true;
+  const gameHUD       = document.getElementById('hud');
+  gameHUD.style.display = "block";
   startOverlay.style.display = 'none';
   resetState();
   // no need to remove menuScene; we switch render calls
@@ -909,6 +910,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const playBackBtn     = document.getElementById('playBackBtn');
   const instrBackBtn    = document.getElementById('instrBackBtn');
   const githubBtn       = document.getElementById('githubBtn');
+
 
   // FORCE initial visibility
   optionsList.style.display     = 'flex';
@@ -1186,20 +1188,9 @@ function animate() {
   }
 
   // ---------- Update HUD ----------
-  const speedMPH = currentSpeed * 1.5;
-  speedDisplay.textContent = `Speed: ${Math.round(speedMPH)} mph`;
-  brakeStatus.style.display = keyState.brake ? 'block' : 'none';
+  const speedMPH = currentSpeed * 1.4;
+  speedDisplay.textContent = `${Math.round(speedMPH)} MPH`;
   renderer.render(scene, camera);
 }
 animate();
 
-/**
- * 
-    <!-- === HUD === -->
-    <div id="hud">
-      <div id="speedDisplay">Speed: 0 km/h</div>
-      <div id="brakeStatus">Braking</div>
-      <div id="scoreDisplay">Score: 0 mi</div>
-    </div>
-
- */

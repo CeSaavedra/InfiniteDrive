@@ -2,6 +2,8 @@
 <html lang="en">
 
 <head>
+
+
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Infinite Drive</title>
@@ -10,64 +12,83 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Roboto+Flex:opsz,wght@8..144,100..1000&display=swap"
     rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Audiowide&display=swap" rel="stylesheet">
+
+
 </head>
 
 <body>
   <main>
     <div id="container3D"></div>
-
-
     <div id="startOverlay">
       <div class="menu__nav_container">
         <div class="menu__nav">
 
-          <!-- PLAY screen -->
+          <!-- PLAY MENU -->
           <div class="menu__play roboto-flex-semibold"
             style="display: flex; flex-direction: column; align-items: center;">
             <button class="back-btn roboto-flex-semibold" id="playBackBtn">← BACK</button>
 
-            <div class="menu__play_lbinput">
-              <div class="menu__text">
-              <p class="roboto-flex-semibold">Leaderboard Name</p>
-              </div>
-            
-              <!-- Text Input Box (max 2 chars, A–Z & 0–9 only) -->
-              <input class="roboto-flex-semibold" type="text" id="leaderboardName" maxlength="2" pattern="[A-Z0-9]{1,2}"
-                placeholder="AA" title="2 chars max, A–Z & 0–9" />
-            </div>
-            <div class="menu__play_color">
-              <p class="menu__text roboto-flex-semibold">Choose Car Color</p>
-              <!-- 8 colored circles (buttons) -->
-              <div class="color-picker">
-                <div class="color-picker-row-1">
-                  <button class="color-circle" data-color="#A43600" style="color:#ff3700"></button>
-                  <button class="color-circle" data-color="#A43600" style="color:#ff9d00"></button>
-                  <button class="color-circle" data-color="#dbb51e" style="color:#ffe57d"></button>
-                  <button class="color-circle" data-color="#050505" style="color:#050505"></button>
-                </div>
-                <div class="color-picker-row-2">
-                  <button class="color-circle" data-color="#0039bf" style="color:#004cff"></button>
-                  <button class="color-circle" data-color="#4f8100" style="color:#98ff37"></button>
-                  <button class="color-circle" data-color="#a63e3e" style="color:#ff9696"></button>
-                  <button class="color-circle" data-color="#6f6f6f" style="color:#E4E4E4"></button>
-                </div>
-              </div>
+            <div class="menu__play_text_container">
+              <!-- Play Menu Title -->
+              <p class="menu__text roboto-flex-semibold">PAINT YOUR RIDE</p>
             </div>
 
-            <div class="menu__play_start">
+            <div class="menu__play_color_container">
+              <div class="menu__play_color">
+                <!-- Play Menu Colors -->
+                <div class="color-picker">
+                  <div class="color-picker-row-1">
+                    <button class="color-circle" data-color="#790808" style="color:#ec0000"></button>
+                    <button class="color-circle" data-color="#ff3300" style="color:#ff8c00"></button>
+                    <button class="color-circle" data-color="#ff6600" style="color:#ffe100"></button>
+                    <button class="color-circle" data-color="#4f8100" style="color:#98ff37"></button>
+                  </div>
+                  <div class="color-picker-row-2">
+                    <button class="color-circle" data-color="#0039bf" style="color:#004cff"></button>
+                    <button class="color-circle" data-color="#4907ff" style="color:#a826ff"></button>
+                    <button class="color-circle" data-color="#a63e3e" style="color:#ff9696"></button>
+                    <button class="color-circle" data-color="#ffffff" style="color:#ffffff"></button>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="menu__play_start_container">
               <button id="startBtn">Start Game</button>
             </div>
-          </div>
+
+          </div> <!-- END OF PLAY MENU -->
 
 
           <!-- INSTRUCTIONS screen -->
-          <div class="menu__instructions roboto-flex-semibold" style="display: none;">
+          <div class="menu__instructions roboto-flex-semibold">
             <button class="back-btn roboto-flex-semibold" id="instrBackBtn">← BACK</button>
-            <!-- your instructions content here -->
-            <p class="menu__text">Instructions placeholder</p>
-          </div>
 
-          <!-- original start button (if you still need it) -->
+            <div class="menu__instructions_title_container">
+              <p class="menu__text">HOW TO PLAY</p>
+            </div>
+
+            <div class="menu__instructions_controls_container">
+              <ul class="menu__instructions_controls" role="list" aria-label="Game controls">
+                <li>
+                  <span class="key" aria-hidden="true">W</span>
+                  <span class="desc">Accelerate</span>
+                </li>
+                <li>
+                  <span class="key" aria-hidden="true">A</span>
+                  <span class="desc">Shift Left</span>
+                </li>
+                <li>
+                  <span class="key" aria-hidden="true">S</span>
+                  <span class="desc">Brake</span>
+                </li>
+                <li>
+                  <span class="key" aria-hidden="true">D</span>
+                  <span class="desc">Shift Right</span>
+                </li>
+              </ul>
+            </div>
+          </div>
 
           <!-- main menu options -->
           <ul class="menu__options roboto-flex-semibold">
@@ -87,22 +108,19 @@
               </button>
             </li>
           </ul>
-
         </div>
       </div>
       <div class="menu__empty"></div>
-    </div>
+    </div> <!-- End of GAMESTART menu content -->
 
 
     <!-- === HUD === -->
     <div id="hud" style="display: none;">
-      <div id="speedDisplay">Speed: 0 km/h</div>
-      <div id="brakeStatus">Braking</div>
       <div id="scoreDisplay">Score: 0 mi</div>
+      <div id="speedDisplay">Speed: 0 km/h</div>
     </div>
 
-    <!-- === collision and wasted/retry === -->
-
+    <!-- === GAME LOSS OVERLAY === -->
     <div id="gameOverOverlay">
       <div id="wastedText">WASTED</div>
       <div id="finalScore">Score: 0</div>
