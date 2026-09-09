@@ -29,6 +29,25 @@ document.addEventListener('DOMContentLoaded', () => {
   const cameraInitialHeight = 1.2;  // Initial camera height (starts lower)
   const cameraFinalHeight = 2.0;    // Camera height at end of intro
 
+  // ------------------ AUDIO ------------------
+  const listener = new THREE.AudioListener();
+  camera.add(listener);
+
+  const engineSound = new THREE.Audio(listener);  // Enging Sound Audio
+  const audioLoader = new THREE.AudioLoader();    // Car Crash Audio
+
+  audioLoader.load('../assets/audio/engine_loop.mp3', buffer => {
+    engineSound.setBuffer(buffer);
+    engineSound.setLoop(true);
+    engineSound.setVolume(0.3);
+  });
+
+  const carCrashSound = new THREE.Audio(listener);
+  audioLoader.load('assets/audio/car_crash.mp3', buffer => {
+    carCrashSound.setBuffer(buffer);
+    carCrashSound.setVolume(1.0);
+  });
+
 
   // ------------------ LIGHTS ------------------
   const light = new THREE.DirectionalLight(0xffffff, .6); // Light Color & Intensity
@@ -96,6 +115,13 @@ document.addEventListener('DOMContentLoaded', () => {
   let globalLightBarrierModel = null;     // Road light barrier model
   let globalTestLightModel = null;        // Street light spotlight model to be placed in middle
   let scoreValue = 0;
+
+  let isPaused = false;
+  let isMuted = false;
+  const sparkThreshold = 99;
+  let lastSparkTime = 0;
+  const pauseOverlay = document.getElementById('pauseOverlay'); // create in HTML
+  const pauseBtn = document.getElementById('pauseBtn'); // create in HTML
 
 
   /** ========================== 3D CAR MODELS ==========================
@@ -466,15 +492,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     if (originalSpot) {
-      console.log("Original spotlight found:", {
-        color: originalSpot.color.getHexString(),
-        intensity: originalSpot.intensity,
-        distance: originalSpot.distance,
-        angle: originalSpot.angle,
-        penumbra: originalSpot.penumbra,
-        decay: originalSpot.decay,
-        position: originalSpot.position.toArray()
-      });
+
       // Create a completely new spotlight using the parameters from the original
       const newSpot = new THREE.SpotLight(
         0xF36940,
@@ -496,7 +514,6 @@ document.addEventListener('DOMContentLoaded', () => {
       newSpot.target = newTarget;
       newSpot.target.updateMatrixWorld();
       container.add(newSpot);
-      console.log("Rebuilt spotlight inserted with target (local):", newTarget.position.toArray());
     } else {
       console.warn("No spotlight found in the original test light model; cloning entire model instead.");
       container.add(globalTestLightModel.clone(true));
@@ -509,7 +526,6 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     });
     container.add(accessories);
-    console.log("Insanely revamped test light inserted into segment; container position:", container.position);
     segment.add(container);
   }
 
@@ -787,6 +803,9 @@ document.addEventListener('DOMContentLoaded', () => {
   // Triggers the end-game UI overlay that displays final score and offers to retry attempt
   function triggerGameOver() {
     gameOver = true;
+    engineSound.stop();
+    carCrashSound.play();
+
 
     // Freeze the car
     carBody.velocity.set(0, 0, 0);
@@ -794,7 +813,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const finalMiles = Math.floor(scoreValue * 0.5);
     document.getElementById('finalScore').textContent = `Score: ${finalMiles}`;
-
     document.getElementById('gameOverOverlay').style.display = 'flex'; // "WASTED" UI overlay
   }
   // Retry button - Click
@@ -841,21 +859,16 @@ document.addEventListener('DOMContentLoaded', () => {
   let bobTime = 0;
 
   new GLTFLoader().load('assets/models/menu-screen.glb', gltf => {
-    // add the menu model to its own scene
     menuModel = gltf.scene;
 
     menuScene.add(gltf.scene);
 
-
-
-    // grab the Blender camera node (for FOV, near/far, etc.)
     const srcCam = gltf.scene.getObjectByName('blender_cam') ||
       gltf.cameras.find(c => c.isCamera);
     if (!srcCam) {
       return console.error('No camera named "blender_cam" in menu-screen.glb');
     }
 
-    // clone the camera and then override its transform
     menuCamera = srcCam.clone(true);
     menuCamera.position.set(0.826, 2.826, 0.597);
     menuCamera.quaternion.setFromRotationMatrix(
@@ -868,15 +881,11 @@ document.addEventListener('DOMContentLoaded', () => {
     menuCamera.updateProjectionMatrix();
     menuScene.add(menuCamera);
 
-    // attach OrbitControls and fix its target
     menuControls = new OrbitControls(menuCamera, renderer.domElement);
     menuControls.enableDamping = true;
     menuControls.target.set(0.829, 2.824, 0.622);
     menuControls.update();
-
-
   });
-
 
   function resetState() {
     currentSpeed = 40;
@@ -891,9 +900,11 @@ document.addEventListener('DOMContentLoaded', () => {
     gameStarted = true;
     const gameHUD = document.getElementById('hud');
     gameHUD.style.display = "block";
+    const settingsHUD = document.getElementById('settingsOverlay');
+    settingsHUD.style.display = "flex";
+
     startOverlay.style.display = 'none';
     resetState();
-    // no need to remove menuScene; we switch render calls
   }
 
   const playContainer = document.querySelector('.menu__play');
@@ -903,8 +914,6 @@ document.addEventListener('DOMContentLoaded', () => {
   const howToPlayBtn = document.getElementById('howToPlayBtn');
   const playBackBtn = document.getElementById('playBackBtn');
   const instrBackBtn = document.getElementById('instrBackBtn');
-  const githubBtn = document.getElementById('githubBtn');
-
 
   // FORCE initial visibility
   optionsList.style.display = 'flex';
@@ -931,17 +940,11 @@ document.addEventListener('DOMContentLoaded', () => {
     optionsList.style.display = 'flex';
   });
 
-  githubBtn.addEventListener('click', e => {
-    window.open(e.currentTarget.dataset.url, '_blank', 'noopener');
-  });
 
-
+  startBtn.addEventListener("click", () => engineSound.play());
   startBtn.addEventListener('click', initGame);
 
-
-  // after your player_car is loaded and added to scene…
-
-  // ─── 3) Utility: traverse & apply color ───────────────────────
+  // Utility: traverse & apply color 
   function colorize(root, hex) {
     root.traverse(child => {
       if (!child.isMesh) return;
@@ -956,25 +959,71 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  // ─── 4) Hook up your color buttons ────────────────────────────
+  // Color Buttons 
   document.querySelectorAll('.color-circle').forEach(btn => {
     btn.addEventListener('click', () => {
       const hex = new THREE.Color(btn.dataset.color).getHex();
-
-      // apply to player car…
       if (player_car) colorize(player_car, hex);
-
-      // …and to menu-screen preview
       if (menuModel) colorize(menuModel, hex);
     });
   });
+
+
+
+  function setPaused(paused) {
+    if (isPaused === paused) return;
+    isPaused = paused;
+
+    document.getElementById('icon-pause').style.display = isPaused ? 'none' : 'inline';
+    document.getElementById('icon-play').style.display = isPaused ? 'inline' : 'none';
+
+    if (!isPaused) {
+      document.querySelector("canvas").style.filter = "";
+    }
+  }
+
+  pauseBtn.addEventListener('click', () => setPaused(!isPaused));
+  window.addEventListener('keydown', (e) => {
+    if (e.code === 'Escape') {
+      setPaused(!isPaused);
+    }
+  });
+
+
+  function setMute(muted) {
+    if (isMuted === muted) return;
+    isMuted = muted;
+
+    document.getElementById('icon-unmuted').style.display = isMuted ? 'none' : 'inline';
+    document.getElementById('icon-muted').style.display = isMuted ? 'inline' : 'none';
+  }
+
+  muteBtn.addEventListener('click', () => setMute(!isMuted));
+  window.addEventListener('keydown', (e) => {
+    if (e.code === 'KeyM') {
+      setMute(!isMuted);
+    }
+  });
+
+
   function animate() {
+
+    if (gameOver) {
+      if (engineSound.isPlaying) {
+        engineSound.stop();
+      }
+      document.querySelector("canvas").style.filter = "grayscale(1)"; // Black & white filter
+      return;
+    }
+
     requestAnimationFrame(animate);
 
     // render the menu until the game starts
     if (!gameStarted) {
       // slower time advance
       bobTime += 0.002;
+
+      if (!menuCamera) return;
 
       const bobY = Math.cos(bobTime * 1.1) * 0.001;
       menuCamera.position.y = 2.826 + bobY;
@@ -984,16 +1033,26 @@ document.addEventListener('DOMContentLoaded', () => {
       return;
     }
 
+    if (isPaused) {
+      if (engineSound.isPlaying) {
+        engineSound.stop();
+      }
+      document.querySelector("canvas").style.filter = "grayscale(1)"; // Black & white filter
+      renderer.render(scene, camera);
+      return;
+    }
+    listener.setMasterVolume(isMuted ? 0 : 1);
+
+
     controls.update();
     const delta = clock.getDelta();
     world.step(1 / 60, delta, 3);
 
-    updateSkyscrapers(carBody.position.z); // Generate Skyscrapers based on Player Position
-
-    if (gameOver) { // If game over (player crashed)
-      document.querySelector("canvas").style.filter = "grayscale(1)"; // Black & white filter
-      maxSpeed = 0;
+    if (!engineSound.isPlaying) {
+      engineSound.play();
     }
+
+    updateSkyscrapers(carBody.position.z); // Generate Skyscrapers based on Player Position
 
     // ---------- Input Controls ----------
     if (player_car && carBody) { // Update Player car based on input controls
@@ -1035,6 +1094,24 @@ document.addEventListener('DOMContentLoaded', () => {
       }
       const score = Math.floor(scoreValue * 0.5); // Score multiplier
       scoreDisplay.textContent = `Score: ${score}`;
+
+      // --- Engine audio pitch & volume ---
+      if (engineSound && engineSound.isPlaying) {
+
+        // Normalize speed 0 → 1
+        const speedNorm = THREE.MathUtils.clamp(currentSpeed / maxSpeed, 0, 1);
+
+        // Pitch scaling 
+        const minPitch = 0.8;
+        const maxPitch = 2.0;
+        engineSound.setPlaybackRate(THREE.MathUtils.lerp(minPitch, maxPitch, speedNorm));
+
+        // Volume scaling (louder when fast)
+        const minVol = 0.25;
+        const maxVol = 0.9;
+        engineSound.setVolume(THREE.MathUtils.lerp(minVol, maxVol, speedNorm));
+      }
+
 
       // ---------- Smoother Turning ----------
       // Increase or decrease turnAngularVelocity based on left/right (turning) inputs
@@ -1138,7 +1215,7 @@ document.addEventListener('DOMContentLoaded', () => {
         // Set camera position
         camera.position.copy(desiredCameraPos);
 
-        // Have camera look at the car (slight upward adjustment)
+        // Have camera look at the car 
         const lookAtPos = player_car.position.clone();
         lookAtPos.y += 2.25;
         camera.lookAt(lookAtPos);
@@ -1146,7 +1223,7 @@ document.addEventListener('DOMContentLoaded', () => {
         // End the intro phase once t reaches 1.
         if (t >= 1) {
           introCameraAnimation = false;
-          introTimer = 0; // Reset timer so it can be reused on restart
+          introTimer = 0;
         }
       } else if (player_car) {
 
@@ -1188,6 +1265,50 @@ document.addEventListener('DOMContentLoaded', () => {
     const speedMPH = currentSpeed * 1.4;
     speedDisplay.textContent = `${Math.round(speedMPH)} MPH`;
     renderer.render(scene, camera);
+
+
+
+    const speedRatio = THREE.MathUtils.clamp(currentSpeed / maxSpeed, 0, 1);
+    const easedRatio = Math.pow(speedRatio, 4); 
+    
+    // Color stops: original -> orange -> red
+    const stops = [
+      { r: 255, g: 255, b: 255 }, // original/white
+      { r: 255, g: 165, b: 0 },   // orange
+      { r: 255, g: 0,   b: 0 }    // red
+    ];
+    
+    const segment = easedRatio * (stops.length - 1);
+    const index = Math.min(Math.floor(segment), stops.length - 2);
+    const localT = segment - index; 
+    
+    const from = stops[index];
+    const to = stops[index + 1];
+    
+    const r = Math.round(THREE.MathUtils.lerp(from.r, to.r, localT));
+    const g = Math.round(THREE.MathUtils.lerp(from.g, to.g, localT));
+    const b = Math.round(THREE.MathUtils.lerp(from.b, to.b, localT));
+    
+    speedDisplay.style.color = `rgb(${r}, ${g}, ${b})`;
+
+    if (currentSpeed > sparkThreshold) {
+      const now = performance.now();
+      if (now - lastSparkTime > 60) {
+        lastSparkTime = now;
+        spawnSpark();
+      }
+    }
+
+    function spawnSpark() {
+      const spark = document.createElement('div');
+      spark.className = 'spark';
+      const wrapperWidth = speedDisplayWrapper.offsetWidth;
+      spark.style.left = `${Math.random() * wrapperWidth}px`;
+      spark.style.setProperty('--drift', `${(Math.random() - 0.5) * 30}px`);
+      speedDisplayWrapper.appendChild(spark);
+      setTimeout(() => spark.remove(), 800);
+    }
+
   }
   animate();
 });

@@ -2,8 +2,6 @@
 <html lang="en">
 
 <head>
-
-
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Infinite Drive</title>
@@ -13,8 +11,6 @@
   <link href="https://fonts.googleapis.com/css2?family=Roboto+Flex:opsz,wght@8..144,100..1000&display=swap"
     rel="stylesheet">
   <link href="https://fonts.googleapis.com/css2?family=Audiowide&display=swap" rel="stylesheet">
-
-
 </head>
 
 <body>
@@ -24,19 +20,19 @@
       <div class="menu__nav_container">
         <div class="menu__nav">
 
-          <!-- PLAY MENU -->
+          <!-- PLAY GAME MENU -->
           <div class="menu__play roboto-flex-semibold"
             style="display: flex; flex-direction: column; align-items: center;">
             <button class="back-btn roboto-flex-semibold" id="playBackBtn">← BACK</button>
 
             <div class="menu__play_text_container">
-              <!-- Play Menu Title -->
               <p class="menu__text roboto-flex-semibold">PAINT YOUR RIDE</p>
             </div>
 
             <div class="menu__play_color_container">
               <div class="menu__play_color">
-                <!-- Play Menu Colors -->
+
+                <!-- COLOR OPTIONS -->
                 <div class="color-picker">
                   <div class="color-picker-row-1">
                     <button class="color-circle" data-color="#790808" style="color:#ec0000"></button>
@@ -51,16 +47,18 @@
                     <button class="color-circle" data-color="#ffffff" style="color:#ffffff"></button>
                   </div>
                 </div>
+
               </div>
             </div>
+
+            <!-- START GAME BUTTON -->
             <div class="menu__play_start_container">
               <button id="startBtn">Start Game</button>
             </div>
+          </div>
 
-          </div> <!-- END OF PLAY MENU -->
 
-
-          <!-- INSTRUCTIONS screen -->
+          <!-- HOW TO PLAY MENU -->
           <div class="menu__instructions roboto-flex-semibold">
             <button class="back-btn roboto-flex-semibold" id="instrBackBtn">← BACK</button>
 
@@ -86,11 +84,19 @@
                   <span class="key" aria-hidden="true">D</span>
                   <span class="desc">Shift Right</span>
                 </li>
+                <li>
+                  <span class="key" aria-hidden="true">M</span>
+                  <span class="desc">Mute / Unmute</span>
+                </li>
+                <li>
+                  <span class="key" aria-hidden="true">ESC</span>
+                  <span class="desc">Pause / Unpause</span>
+                </li>
               </ul>
             </div>
           </div>
 
-          <!-- main menu options -->
+          <!-- MAIN MENU -->
           <ul class="menu__options roboto-flex-semibold">
             <li>
               <button type="button" class="menu__option" id="playGameBtn">
@@ -102,32 +108,46 @@
                 HOW TO PLAY
               </button>
             </li>
-            <li>
-              <button type="button" class="menu__option" id="githubBtn" data-url="https://github.com/CeSaavedra">
-                GITHUB
-              </button>
-            </li>
           </ul>
         </div>
       </div>
       <div class="menu__empty"></div>
-    </div> <!-- End of GAMESTART menu content -->
-
-
-    <!-- === HUD === -->
-    <div id="hud" style="display: none;">
-      <div id="scoreDisplay">Score: 0 mi</div>
-      <div id="speedDisplay">Speed: 0 km/h</div>
     </div>
 
-    <!-- === GAME LOSS OVERLAY === -->
+
+    <!-- IN-GAME HUD -->
+    <div id="hud" style="display: none;">
+      <div id="scoreDisplay">Score: 0 mi</div>
+      <div id="speedDisplayWrapper" style="position: relative;">
+        <div id="speedDisplay">Speed: 0 km/h</div>
+      </div>
+    </div>
+
+    <!-- SETTINGS HUD -->
+    <div id="settingsOverlay" style="display: none;">
+
+      <button id="pauseBtn" class="settingsBtn">
+        <img src="assets/icons/pause.svg" alt="" class="settings-icon-pause" id="icon-pause" />
+        <img src="assets/icons/play.svg" alt="Play" id="icon-play" class="settings-icon-pause" style="display: none;" />
+      </button>
+
+      <button id="muteBtn" class="settingsBtn">
+        <img src="assets/icons/unmuted.svg" alt="Unmuted" id="icon-unmuted" class="settings-icon-audio" />
+        <img src="assets/icons/muted.svg" alt="Muted" id="icon-muted" class="settings-icon-audio"
+          style="display: none;" />
+      </button>
+
+    </div>
+
+    <!-- END GAME UI -->
     <div id="gameOverOverlay">
       <div id="wastedText">WASTED</div>
       <div id="finalScore">Score: 0</div>
       <button id="retryBtn">RETRY</button>
     </div>
-  </main>
 
+
+  </main>
   <script type="module" src="./js/main.js"></script>
 </body>
 
