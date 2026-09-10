@@ -45,7 +45,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const carCrashSound = new THREE.Audio(listener);
   audioLoader.load('assets/audio/car_crash.mp3', buffer => {
     carCrashSound.setBuffer(buffer);
-    carCrashSound.setVolume(1.0);
+    carCrashSound.setVolume(0.05);
   });
 
 
@@ -1092,7 +1092,7 @@ document.addEventListener('DOMContentLoaded', () => {
       if (currentSpeed > 0) {
         scoreValue += currentSpeed * delta;
       }
-      const score = Math.floor(scoreValue * 0.5); // Score multiplier
+      const score = Math.floor(scoreValue * 0.5);
       scoreDisplay.textContent = `Score: ${score}`;
 
       // --- Engine audio pitch & volume ---
@@ -1107,8 +1107,8 @@ document.addEventListener('DOMContentLoaded', () => {
         engineSound.setPlaybackRate(THREE.MathUtils.lerp(minPitch, maxPitch, speedNorm));
 
         // Volume scaling (louder when fast)
-        const minVol = 0.25;
-        const maxVol = 0.9;
+        const minVol = 0.025;
+        const maxVol = 0.05;
         engineSound.setVolume(THREE.MathUtils.lerp(minVol, maxVol, speedNorm));
       }
 
@@ -1269,26 +1269,26 @@ document.addEventListener('DOMContentLoaded', () => {
 
 
     const speedRatio = THREE.MathUtils.clamp(currentSpeed / maxSpeed, 0, 1);
-    const easedRatio = Math.pow(speedRatio, 4); 
-    
+    const easedRatio = Math.pow(speedRatio, 4);
+
     // Color stops: original -> orange -> red
     const stops = [
       { r: 255, g: 255, b: 255 }, // original/white
       { r: 255, g: 165, b: 0 },   // orange
-      { r: 255, g: 0,   b: 0 }    // red
+      { r: 255, g: 0, b: 0 }    // red
     ];
-    
+
     const segment = easedRatio * (stops.length - 1);
     const index = Math.min(Math.floor(segment), stops.length - 2);
-    const localT = segment - index; 
-    
+    const localT = segment - index;
+
     const from = stops[index];
     const to = stops[index + 1];
-    
+
     const r = Math.round(THREE.MathUtils.lerp(from.r, to.r, localT));
     const g = Math.round(THREE.MathUtils.lerp(from.g, to.g, localT));
     const b = Math.round(THREE.MathUtils.lerp(from.b, to.b, localT));
-    
+
     speedDisplay.style.color = `rgb(${r}, ${g}, ${b})`;
 
     if (currentSpeed > sparkThreshold) {
