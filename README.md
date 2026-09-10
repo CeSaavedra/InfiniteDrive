@@ -33,4 +33,10 @@
 - Wanted to keep all 3D assets self-made and low-poly, so they were created in Blender and contributed to a lightweight 2.9 MB project file size.
 - Ran into performance issues, requiring optimization of the world generation and spotlights within the project.
 
+## Title Screen
 ![Image of Infinite Drive menu screen](assets/images/menu_screen.png)
+
+## Credits
+- "Play" and "Pause" icons by Noah Jacobus (SVGRepo, PD License)
+- "Mute" and "Unmute" icons by Financial Times (SVGRepo, MIT License)
+- Engine & crash sound effects via Pixabay
