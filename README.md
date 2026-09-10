@@ -9,7 +9,7 @@
 - Cannon.js - Physics Simulation
 
 ## Play Live Demo Now On My Itch.io Page
-![Play Now](https://img.shields.io/badge/▶_Play_Now-brightgreen?style=for-the-badge)
+[![Play Now](https://img.shields.io/badge/▶_Play_Now-brightgreen?style=for-the-badge)](https://ravlo.itch.io)
 
 ## Key Features
 - Infinitely generating world including a four-laned highway, city skyscrapers, and street lights
