@@ -36,7 +36,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const engineSound = new THREE.Audio(listener);  // Enging Sound Audio
   const audioLoader = new THREE.AudioLoader();    // Car Crash Audio
 
-  audioLoader.load('../assets/audio/engine_loop.mp3', buffer => {
+  audioLoader.load('assets/audio/engine_loop.mp3', buffer => {
     engineSound.setBuffer(buffer);
     engineSound.setLoop(true);
     engineSound.setVolume(0.3);
