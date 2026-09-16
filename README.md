@@ -26,7 +26,7 @@
 - S: Brake
 - D: Shift Right
 - M: Mute/Unmute Game
-- Escape: Pause/Unpause Game
+- P: Pause/Unpause Game
 
 ## Challenges
 - First time ever using 3D modeling applications and Three.js, required significant time to learn fundamentals.

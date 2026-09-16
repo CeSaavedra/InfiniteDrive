@@ -37,7 +37,7 @@
   --key-shadow: 0 6px 12px rgba(0, 0, 0, 0.08);
   --desc-color: #0f172a;
   --desc-font-size: 1rem;
-  --min-key-size: clamp(0px, 2.5vw, 50px);
+  --min-key-size: clamp(25px, 2.5vw, 50px);
   --max-key-size: clamp(50px, 8vw, 80px);  
 }
 
@@ -271,7 +271,7 @@ canvas {
   left: clamp(0.5rem, 2vw, 2rem);
   margin: 0;
   z-index: 1002;
-  font-size: clamp(1.2rem, 2vw, 3rem);
+  font-size: clamp(1rem, 2vw, 3rem);
   border: none;
   color: #f3f3f3cb;
   background: none;
@@ -279,7 +279,7 @@ canvas {
 }
 
 .back-btn:hover {
-  color: #efefef;
+  color: #ffb8b8;
 }
 
 
@@ -287,7 +287,7 @@ canvas {
 .color-picker {
   position: relative;
   gap: 0.5rem;
-  word-spacing: 1rem;
+  word-spacing: 0.5rem;
   height: 80%;
   width: 100%;
   top: 0;
@@ -303,6 +303,10 @@ canvas {
   border: 2px solid #fff;
   background-color: currentColor;
   cursor: pointer;
+}
+
+.color-circle:hover {
+  transform:scale(1.2);
 }
 
 .color-circle[data-color="red"] {
@@ -400,12 +404,12 @@ canvas {
   font-size: clamp(1rem, 2vw, 3rem);
   padding: clamp(0rem, 0vw, 0.5rem);
   border-style: solid;
-  border-color: rgb(255, 105, 35);
+  border-color: rgb(226, 67, 67);
   border-width: clamp(1px, 0.4vw, 3px);
   border-radius: 8px;
   color: #fff9f1;
   background: #1a1a1a;
-  font-weight: 400;
+  font-weight: 600;
   width: 50%;
   height: 40%;
   margin-bottom: 10%;
@@ -414,11 +418,9 @@ canvas {
 }
 
 #startBtn:hover {
-  color: black;
-  background:  rgb(255, 105, 35);
+  background:  rgb(226, 67, 67);
   border: solid 3px #161616;
   animation: bounceBtn 0.45s ease;
-  font-weight:900;
 }
 
 @keyframes bounceBtn {

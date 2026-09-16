@@ -960,11 +960,27 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   // Color Buttons 
+  let rainbowInterval = null;
   document.querySelectorAll('.color-circle').forEach(btn => {
     btn.addEventListener('click', () => {
-      const hex = new THREE.Color(btn.dataset.color).getHex();
-      if (player_car) colorize(player_car, hex);
-      if (menuModel) colorize(menuModel, hex);
+      if (rainbowInterval) {
+        clearInterval(rainbowInterval);
+        rainbowInterval = null;
+      }
+
+      if (btn.dataset.color === 'rainbow') {
+        let hue = 0;
+        rainbowInterval = setInterval(() => {
+          hue = (hue + 2) % 360;
+          const hex = new THREE.Color(`hsl(${hue}, 100%, 50%)`).getHex();
+          if (player_car) colorize(player_car, hex);
+          if (menuModel) colorize(menuModel, hex);
+        }, 20); 
+      } else {
+        const hex = new THREE.Color(btn.dataset.color).getHex();
+        if (player_car) colorize(player_car, hex);
+        if (menuModel) colorize(menuModel, hex);
+      }
     });
   });
 
@@ -984,7 +1000,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   pauseBtn.addEventListener('click', () => setPaused(!isPaused));
   window.addEventListener('keydown', (e) => {
-    if (e.code === 'Escape') {
+    if (e.code === 'KeyP') {
       setPaused(!isPaused);
     }
   });
@@ -1003,6 +1019,17 @@ document.addEventListener('DOMContentLoaded', () => {
     if (e.code === 'KeyM') {
       setMute(!isMuted);
     }
+  });
+
+
+  // Auto-pause if user clicks away from Game
+  window.addEventListener('blur', () => {
+    if (!isPaused) setPaused(true);
+  });
+
+  // Loading screen
+  window.addEventListener('load', () => {
+    document.getElementById('loading-screen').style.display = 'none';
   });
 
 
@@ -1253,7 +1280,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // ---------- Top Speed Effect ----------
     if (currentSpeed >= 99) {
       // Top Speed - Enable Saturation Filter
-      document.querySelector("canvas").style.filter = "saturate(2)";
+      document.querySelector("canvas").style.filter = "saturate(1.25)";
       light.intensity = 0.45;
     } else {
       // Reset filter
