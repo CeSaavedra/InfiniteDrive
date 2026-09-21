@@ -1,4 +1,4 @@
-# Infinite Drive v1.0
+# Infinite Drive v1.1
 *3D Driving Game - Take A Nighttime Drive Through An Infinitely Generating World with Traffic!*
 
 ![Image of Infinite Drive Gameplay](assets/images/gameplay_img.png)
@@ -14,6 +14,7 @@
 ## Key Features
 - Infinitely generating world including a four-laned highway, city skyscrapers, and street lights
 - NPC car spawn system to simulate traffic with randomized color system
+- Difficulty setting allowing player to choose how populated the traffic is
 - Player driving controls and physics-based crash detection system. 
 - Player car includes functional taillights, headlights, and rotating tires.
 - Settings UI allowing you to mute or pause the game
