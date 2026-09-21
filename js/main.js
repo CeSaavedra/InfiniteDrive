@@ -39,7 +39,7 @@ document.addEventListener('DOMContentLoaded', () => {
   audioLoader.load('assets/audio/engine_loop.mp3', buffer => {
     engineSound.setBuffer(buffer);
     engineSound.setLoop(true);
-    engineSound.setVolume(0.3);
+    engineSound.setVolume(0.025);
   });
 
   const carCrashSound = new THREE.Audio(listener);
@@ -604,6 +604,11 @@ document.addEventListener('DOMContentLoaded', () => {
     // ADD BARRIERS. Uses regular barrier or light barrier depending on segment flag
     if (globalBarrierModel || globalLightBarrierModel) {
       addBarriersToSegment(roadSegmentGroup);
+    }
+
+    if (roadSegmentGroup.userData.useLightBarrier && globalTestLightModel && !roadSegmentGroup.userData.hasMiddleTestLight) {
+      insertMiddleTestLightIntoSegment(roadSegmentGroup);
+      roadSegmentGroup.userData.hasMiddleTestLight = true;
     }
 
     // Set the segment's position.
