@@ -164,6 +164,18 @@ document.addEventListener('DOMContentLoaded', () => {
       // Save the physics body reference for later use.
       player_car.userData.physicsBody = carBody;
 
+      // ==================== COLLISION LISTENERS (registered once) ====================
+      carBody.addEventListener("collide", function (e) {
+        if (e.body && e.body.isNPC) {
+          triggerGameOver();
+        }
+      });
+      carBody.addEventListener("collide", function (event) {
+        if (event.body && event.body.isWall) {
+          triggerGameOver();
+        }
+      });
+
       // Retrieve each Tire mesh from Car model hierarchy
       const frontLeftTire = player_car.getObjectByName("front_l_tire");
       const frontRightTire = player_car.getObjectByName("front_r_tire");
@@ -299,13 +311,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
       world.addBody(collisionBody);
       npcCar.userData.physicsBody = collisionBody;
-
-      player_car.userData.physicsBody.addEventListener("collide", function (e) {
-        if (e.body && e.body.isNPC) triggerGameOver();
-      });
-      player_car.userData.physicsBody.addEventListener("collide", function (event) {
-        if (event.body && event.body.isWall) triggerGameOver();
-      });
     });
   }
 
