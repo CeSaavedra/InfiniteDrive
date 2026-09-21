@@ -120,6 +120,9 @@ document.addEventListener('DOMContentLoaded', () => {
   let isMuted = false;
   const sparkThreshold = 99;
   let lastSparkTime = 0;
+  let spawnChance = 0.99;
+  let spawnRate = 1;
+
   const pauseOverlay = document.getElementById('pauseOverlay'); // create in HTML
   const pauseBtn = document.getElementById('pauseBtn'); // create in HTML
 
@@ -185,65 +188,46 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // ==================== NPC CAR SPAWN/DE-SPAWN SYSTEM ====================
   function updateNPCCars(playerPositionZ, delta) {
-
-    const npcSpeed = 30; // NPC Speed (units per second)
-    // Boundaries relative to the player's z position
+    const npcSpeed = 30;
     const activeRearZ = playerPositionZ + 100;
     const activeFrontZ = playerPositionZ - 1100;
 
     roadSegments.forEach(segment => {
-      if (segment.userData.npcCar) {
-        const npc = segment.userData.npcCar;
+      if (segment.userData.npcCars && segment.userData.npcCars.length > 0) {
+        segment.userData.npcCars = segment.userData.npcCars.filter(npc => {
+          npc.userData.globalZ -= npcSpeed * delta;
+          npc.position.z = npc.userData.globalZ - segment.position.z;
 
-        // Update NPC's global z position
-        npc.userData.globalZ -= npcSpeed * delta;
-
-        // Recalculate local z-position relative to the segment
-        npc.position.z = npc.userData.globalZ - segment.position.z;
-
-        // Update physics body's position
-        if (npc.userData.physicsBody) {
-          npc.userData.physicsBody.position.set(
-            npc.position.x, // x remains unchanged.
-            0.5,
-            npc.userData.globalZ
-          );
-        }
-
-        // Tire Rotation
-        // Obtains the tire meshes from the NPC car model
-        if (npc.userData.npcTires === undefined) {
-          npc.userData.npcTires = [
-            npc.getObjectByName("front_l_tire"),
-            npc.getObjectByName("front_r_tire"),
-            npc.getObjectByName("back_l_tire"),
-            npc.getObjectByName("back_r_tire")
-          ];
-        }
-
-        // Define tire radius
-        const tireRadius = 0.3;
-
-        // Calculate the angular displacement (in radians)
-        const angularDelta = (npcSpeed * delta) / tireRadius;
-
-        // Loop over each tire group and rotate each child
-        npc.userData.npcTires.forEach(tireGroup => {
-          if (tireGroup && tireGroup.children && tireGroup.children.length > 0) {
-            tireGroup.children.forEach(child => {
-              child.rotation.x -= angularDelta;
-            });
-          }
-        });
-
-        // --- Despawn Check ---
-        if (npc.userData.globalZ > activeRearZ || npc.userData.globalZ < activeFrontZ) {
           if (npc.userData.physicsBody) {
-            world.removeBody(npc.userData.physicsBody);
+            npc.userData.physicsBody.position.set(npc.position.x, 0.5, npc.userData.globalZ);
           }
-          segment.remove(npc);
-          delete segment.userData.npcCar;
-        }
+
+          if (npc.userData.npcTires === undefined) {
+            npc.userData.npcTires = [
+              npc.getObjectByName("front_l_tire"),
+              npc.getObjectByName("front_r_tire"),
+              npc.getObjectByName("back_l_tire"),
+              npc.getObjectByName("back_r_tire")
+            ];
+          }
+
+          const tireRadius = 0.3;
+          const angularDelta = (npcSpeed * delta) / tireRadius;
+          npc.userData.npcTires.forEach(tireGroup => {
+            if (tireGroup && tireGroup.children && tireGroup.children.length > 0) {
+              tireGroup.children.forEach(child => {
+                child.rotation.x -= angularDelta;
+              });
+            }
+          });
+
+          if (npc.userData.globalZ > activeRearZ || npc.userData.globalZ < activeFrontZ) {
+            if (npc.userData.physicsBody) world.removeBody(npc.userData.physicsBody);
+            segment.remove(npc);
+            return false; // remove from array
+          }
+          return true; // keep in array
+        });
       }
     });
   }
@@ -258,85 +242,72 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     delete segment.userData.needNPCCar;
 
-    // Clone the NPC car model as before.
-    const npcCar = globalNPCCarModel.clone();
-    npcCar.rotation.y = -Math.PI;
-    npcCar.scale.set(1, 1, 1);
+    segment.userData.npcCars = [];
 
-    // Change the car's color.
-    const mainFrame = npcCar.getObjectByName("main_frame");
-    if (mainFrame) {
+    const availableLanes = Array.from({ length: laneCount }, (_, i) => i)
+      .sort(() => Math.random() - 0.5)
+      .slice(0, spawnRate); // spawn 2 cars, in 2 different random lanes
 
-      // Array of possible NPC car colors
-      const colors = [0x9F1616, 0x084DDD, 0xF1B000, 0xD5D5D5, 0x132116, 0x071E49, 0xD77500, 0x330078];
+    availableLanes.forEach(laneIndex => {
+      const npcCar = globalNPCCarModel.clone();
+      npcCar.rotation.y = -Math.PI;
+      npcCar.scale.set(1, 1, 1);
 
-      const chosenColor = colors[Math.floor(Math.random() * colors.length)];
-      mainFrame.traverse(child => {
-        if (child.isMesh && child.material) {
-          if (Array.isArray(child.material)) {
-            const originalMat = child.material[0];
-            child.material[0] = originalMat.clone();
-            child.material[0].color.setHex(chosenColor);
-            child.material[0].needsUpdate = true;
-          } else {
-            child.material = child.material.clone();
-            child.material.color.setHex(chosenColor);
-            child.material.needsUpdate = true;
+      const mainFrame = npcCar.getObjectByName("main_frame");
+      if (mainFrame) {
+        const colors = [
+          0x9F1616, 0x084DDD, 0xF1B000, 0xD5D5D5, 0x132116, 0x071E49, 0xD77500, 0x330078,
+          0xC0392B, 0x2980B9, 0x27AE60, 0xF39C12, 0x8E44AD, 0x16A085, 0xE74C3C, 0x2C3E50,
+          0xD35400, 0x2ECC71, 0x1ABC9C, 0x34495E, 0xE67E22, 0x7F8C8D, 0xBDC3C7, 0x95A5A6,
+          0x6C3483, 0xA93226, 0x1F618D, 0x148F77, 0xB9770E, 0x922B21, 0x7D3C98, 0x186A3B,
+          0xFF5733, 0xC70039, 0x900C3F, 0x581845, 0xFFC300, 0xDAF7A6, 0x3498DB, 0x9B59B6
+        ];
+        const chosenColor = colors[Math.floor(Math.random() * colors.length)];
+        mainFrame.traverse(child => {
+          if (child.isMesh && child.material) {
+            if (Array.isArray(child.material)) {
+              const originalMat = child.material[0];
+              child.material[0] = originalMat.clone();
+              child.material[0].color.setHex(chosenColor);
+              child.material[0].needsUpdate = true;
+            } else {
+              child.material = child.material.clone();
+              child.material.color.setHex(chosenColor);
+              child.material.needsUpdate = true;
+            }
           }
-        }
+        });
+      }
+
+      const laneX = -roadTotalWidth / 2 + laneWidth / 2 + laneIndex * laneWidth;
+      const offsetZ = THREE.MathUtils.randFloat(-segmentLength / 4, segmentLength / 4);
+      npcCar.position.set(laneX, 0.36, offsetZ);
+
+      npcCar.userData.globalZ = segment.position.z + npcCar.position.z;
+      segment.add(npcCar);
+      segment.userData.npcCars.push(npcCar);
+
+      const halfExtents = new CANNON.Vec3(0.55, 1, 2.2);
+      const collisionShape = new CANNON.Box(halfExtents);
+      const collisionBody = new CANNON.Body({ mass: 500 });
+      const offset = new CANNON.Vec3(0.15, 0, 0.8);
+      collisionBody.addShape(collisionShape, offset);
+
+      collisionBody.position.set(laneX, 0.5, npcCar.userData.globalZ);
+      collisionBody.quaternion.setFromAxisAngle(new CANNON.Vec3(0, .25, 0), -Math.PI);
+      collisionBody.isNPC = true;
+
+      world.addBody(collisionBody);
+      npcCar.userData.physicsBody = collisionBody;
+
+      player_car.userData.physicsBody.addEventListener("collide", function (e) {
+        if (e.body && e.body.isNPC) triggerGameOver();
       });
-    } else {
-      console.warn("main_frame not found in NPC car model.");
-    }
-
-    // Determine lane and random z-offset as before.
-    const laneIndex = Math.floor(Math.random() * laneCount);
-    const laneX = -roadTotalWidth / 2 + laneWidth / 2 + laneIndex * laneWidth;
-    const offsetZ = THREE.MathUtils.randFloat(-segmentLength / 4, segmentLength / 4);
-    npcCar.position.set(laneX, 0.36, offsetZ);
-
-    // Compute a "global" z-position by adding in the segment's z offset.
-    npcCar.userData.globalZ = segment.position.z + npcCar.position.z;
-    segment.add(npcCar);
-    segment.userData.npcCar = npcCar;
-
-    // Attach Collision Body
-    // Approximate car with a box shape (half-extents match player car approximations)
-    const halfExtents = new CANNON.Vec3(0.55, 1, 2.2);     // Adjusted half-extents for width/height/depth
-    const collisionShape = new CANNON.Box(halfExtents);
-    const collisionBody = new CANNON.Body({ mass: 500 });  // Mass remains as set.
-    const offset = new CANNON.Vec3(0.15, 0, 0.8);          // Offsets the shape so that right side is fixed
-    collisionBody.addShape(collisionShape, offset);
-
-    // Set the physics body's position to match the computed globalZ
-    collisionBody.position.set(laneX, 0.5, npcCar.userData.globalZ);
-
-    // Set its orientation if needed
-    collisionBody.quaternion.setFromAxisAngle(new CANNON.Vec3(0, .25, 0), -Math.PI);
-
-    // Mark this body as belonging to an NPC so that collision tests can distinguish it
-    collisionBody.isNPC = true;
-
-    // Add the body to the physics world
-    world.addBody(collisionBody);
-
-    // Save the collision body reference for later updates
-    npcCar.userData.physicsBody = collisionBody;
-
-    player_car.userData.physicsBody.addEventListener("collide", function (e) {
-      // Only trigger if the other body is flagged as an NPC
-      if (e.body && e.body.isNPC) {
-        triggerGameOver();
-      }
-    });
-    player_car.userData.physicsBody.addEventListener("collide", function (event) {
-      // event.body is the object the player's body collided with.
-      if (event.body && event.body.isWall) {
-        triggerGameOver();
-      }
+      player_car.userData.physicsBody.addEventListener("collide", function (event) {
+        if (event.body && event.body.isWall) triggerGameOver();
+      });
     });
   }
-
 
   // ==================== LOAD NPC CAR MODEL ====================
   function loadNPCCarModel() {
@@ -637,7 +608,9 @@ document.addEventListener('DOMContentLoaded', () => {
     addCollidableWallsToSegment(roadSegmentGroup);
 
     // SPAWN NPC CAR.
-    spawnNPCCar(roadSegmentGroup);
+    if (Math.random() < spawnChance) {
+      spawnNPCCar(roadSegmentGroup);
+    }
 
     scene.add(roadSegmentGroup);
     return roadSegmentGroup;
@@ -647,27 +620,18 @@ document.addEventListener('DOMContentLoaded', () => {
   // ==================== ROAD UPDATE FUNCTION ====================
   function updateRoad(playerPositionZ) {
     roadSegments.forEach(segment => {
-      // Recycle segments that pass the player's view.
       if (segment.position.z > playerPositionZ + segmentLength) {
         segment.position.z -= numSegments * segmentLength;
-        if (!segment.userData.hasBarriers) {
-          addBarriersToSegment(segment);
-        }
+        if (!segment.userData.hasBarriers) addBarriersToSegment(segment);
         addCollidableWallsToSegment(segment);
 
-        if (!segment.userData.npcCar && Math.random() < 0.75) {
+        if ((!segment.userData.npcCars || segment.userData.npcCars.length === 0) && Math.random() < spawnChance) {
           spawnNPCCar(segment);
         }
       }
     });
   }
 
-
-  // ==================== INITIALIZATION ====================
-  for (let i = 0; i < numSegments; i++) {
-    // Each segment is positioned relative to the player's starting z-position.
-    roadSegments.push(createRoadSegment(i, carStartZ - i * segmentLength));
-  }
 
   // Load external models.
   loadRoadBarriers();
@@ -897,6 +861,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
   function initGame() {
     if (gameStarted) return;
+    setTimeout(() => {
+      readyToPause = true;
+    }, 2000);
     gameStarted = true;
     const gameHUD = document.getElementById('hud');
     gameHUD.style.display = "block";
@@ -905,6 +872,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
     startOverlay.style.display = 'none';
     resetState();
+
+
+    // ==================== INITIALIZATION ====================
+    for (let i = 0; i < numSegments; i++) {
+      // Each segment is positioned relative to the player's starting z-position.
+      roadSegments.push(createRoadSegment(i, carStartZ - i * segmentLength));
+    }
+
   }
 
   const playContainer = document.querySelector('.menu__play');
@@ -958,11 +933,42 @@ document.addEventListener('DOMContentLoaded', () => {
       });
     });
   }
+  /** ===================================================================
+  /** ======================== PAGE PROPERTIES ==========================
+  *///===================================================================
+  let readyToPause = false;
+
+  let hasFocused = false;
+  window.addEventListener('focus', () => {
+    hasFocused = true;
+  });
+  window.addEventListener('blur', () => {
+    if (readyToPause && !isPaused) setPaused(true);
+  });
+  window.addEventListener('load', () => {
+    document.getElementById('loading-screen').style.display = 'none';
+  });
+
+  document.querySelectorAll('.difficulty-btn').forEach((btn, index) => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.difficulty-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      const chanceRates = [0.25, 0.5, 0.8];
+      const spawnRates = [1, 2, 3];
+      spawnRate = spawnRates[index];
+      spawnChance = chanceRates[index];
+    });
+  });
+
+  document.querySelector('.difficulty-btn.active')?.click();
 
   // Color Buttons 
   let rainbowInterval = null;
   document.querySelectorAll('.color-circle').forEach(btn => {
     btn.addEventListener('click', () => {
+      document.querySelectorAll('.color-circle').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+
       if (rainbowInterval) {
         clearInterval(rainbowInterval);
         rainbowInterval = null;
@@ -975,7 +981,7 @@ document.addEventListener('DOMContentLoaded', () => {
           const hex = new THREE.Color(`hsl(${hue}, 100%, 50%)`).getHex();
           if (player_car) colorize(player_car, hex);
           if (menuModel) colorize(menuModel, hex);
-        }, 20); 
+        }, 20);
       } else {
         const hex = new THREE.Color(btn.dataset.color).getHex();
         if (player_car) colorize(player_car, hex);
@@ -1022,17 +1028,11 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
 
-  // Auto-pause if user clicks away from Game
-  window.addEventListener('blur', () => {
-    if (!isPaused) setPaused(true);
-  });
-
-  // Loading screen
-  window.addEventListener('load', () => {
-    document.getElementById('loading-screen').style.display = 'none';
-  });
 
 
+  /** ===================================================================
+  /** ==================== GAME ANIMATION LOOP ==========================
+   *///==================================================================
   function animate() {
 
     if (gameOver) {
@@ -1335,6 +1335,7 @@ document.addEventListener('DOMContentLoaded', () => {
       speedDisplayWrapper.appendChild(spark);
       setTimeout(() => spark.remove(), 800);
     }
+
 
   }
   animate();

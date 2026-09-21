@@ -25,10 +25,12 @@
             style="display: flex; flex-direction: column; align-items: center;">
             <button class="back-btn roboto-flex-semibold" id="playBackBtn">← BACK</button>
 
+            <!-- GAME MENU - CONTAINER 1 - TITLE -->
             <div class="menu__play_text_container">
               <p class="menu__text roboto-flex-semibold">PAINT YOUR RIDE</p>
             </div>
 
+            <!-- GAME MENU - CONTAINER 2 - COLORS -->
             <div class="menu__play_color_container">
               <div class="menu__play_color">
 
@@ -45,17 +47,28 @@
                     <button class="color-circle" data-color="#0039bf" style="color:#4c82ff"></button>
                     <button class="color-circle" data-color="#4907ff" style="color:#a826ff"></button>
                     <button class="color-circle" data-color="#ff1dce" style="color:#ff71e0"></button>
-                    <button class="color-circle" data-color="rainbow" style="background: conic-gradient(red, orange, yellow, green, blue, violet, red);"></button>
+                    <button class="color-circle" data-color="rainbow"
+                      style="background: conic-gradient(red, orange, yellow, green, blue, violet, red);"></button>
                     <button class="color-circle" data-color="#161616" style="color:#161616"></button>
                   </div>
                 </div>
+
               </div>
             </div>
 
-            <!-- START GAME BUTTON -->
+            <!-- GAME MENU - CONTAINER 3 - DIFFICULTY -->
+            <div class="menu__play_difficulty_container">
+              <button class="difficulty-btn">Easy</button>
+              <button class="difficulty-btn active">Normal</button>
+              <button class="difficulty-btn">Hard</button>
+            </div>
+
+            <!-- GAME MENU - CONTAINER 4 - START -->
             <div class="menu__play_start_container">
               <button id="startBtn">Start Game</button>
             </div>
+
+
           </div>
 
 
@@ -148,7 +161,8 @@
     </div>
 
 
-    <div id="loading-screen" style="position:fixed; inset:0; background:#101010; z-index:9999; display:flex; align-items:center; justify-content:center; color:#d5d5d5; font-size:1rem;">
+    <div id="loading-screen"
+      style="position:fixed; inset:0; background:#101010; z-index:9999; display:flex; align-items:center; justify-content:center; color:#d5d5d5; font-size:1rem;">
       Loading...
     </div>
 
