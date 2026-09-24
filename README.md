@@ -36,7 +36,10 @@
 - Ran into performance issues, requiring optimization of the world generation and spotlights within the project.
 
 ## Game Start Screen
-![Image of Infinite Drive menu screen](assets/images/menu_screen.png)
+![Image of Infinite Drive game start screen](assets/images/menu_screen.png)
+
+## Collision View
+![Image of Infinite Drive models with visible colliders](assets/images/physics_ss.png)
 
 ## Credits
 - "Play" and "Pause" icons by Noah Jacobus (SVGRepo, PD License)
