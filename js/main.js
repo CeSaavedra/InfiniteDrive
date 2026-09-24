@@ -6,10 +6,16 @@ import * as CANNON from 'https://cdn.skypack.dev/cannon-es';
 import { keyState } from './controls.js';
 
 document.addEventListener('DOMContentLoaded', () => {
+
+  /** ==================================================================
+   *  SCENE / CAMERA / AUDIO / LIGHTS / RENDERER / CONTROLS
+   *  Core Three.js setup: scene graph, camera, listener/audio, lighting,
+   *  the WebGL renderer, orbit controls, and the window resize handler
+   *///==================================================================
+
   // ------------------ SCENE ------------------
   const scene = new THREE.Scene();
   scene.background = new THREE.Color(0x070610); // Scene Background Color
-
 
   // ------------------ CAMERA ------------------
   const camera = new THREE.PerspectiveCamera( // Defines Camera
@@ -18,16 +24,6 @@ document.addEventListener('DOMContentLoaded', () => {
     0.1,
     1000
   );
-
-  // INTRO camera animation - global variables
-  let introCameraAnimation = true;  // Set to True at game start
-  let introTimer = 0;
-  const INTRO_DURATION = 2;         // Duration of the Intro rotation
-
-  const cameraFrontDistance = 2;    // Distance in front of the car
-  const cameraBehindDistance = 2.5; // Distance behind the car
-  const cameraInitialHeight = 1.2;  // Initial camera height (starts lower)
-  const cameraFinalHeight = 2.0;    // Camera height at end of intro
 
   // ------------------ AUDIO ------------------
   const listener = new THREE.AudioListener();
@@ -48,18 +44,20 @@ document.addEventListener('DOMContentLoaded', () => {
     carCrashSound.setVolume(0.05);
   });
 
-
   // ------------------ LIGHTS ------------------
   const light = new THREE.DirectionalLight(0xffffff, .6); // Light Color & Intensity
   light.position.set(1.5, 1, 1);                          // Light Position
   scene.add(light);                                       // Defines scene lighting
+
   // ------------------ RENDERER ------------------
   const renderer = new THREE.WebGLRenderer();
   renderer.setSize(window.innerWidth, window.innerHeight);
   document.body.appendChild(renderer.domElement);
+
   // ---------------- ORBIT CONTROLS ----------------
   const controls = new OrbitControls(camera, renderer.domElement);
   controls.enableDamping = true; // Enables SMOOTH orbit
+
   // -------------- HANDLE WINDOW RESIZE --------------
   window.addEventListener('resize', () => { // Allows user to resize window
     camera.aspect = window.innerWidth / window.innerHeight;
@@ -68,28 +66,50 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
 
-  // -------------- PHYSICS (CANNON) --------------
+  /** ==================================================================
+   *  PHYSICS (CANNON)
+   *  Physics world + the infinite road (ground) collider.
+   *///==================================================================
   const world = new CANNON.World(); // Creates physics world with gravity
   world.gravity.set(0, -9.82, 0);   // Sets gravitational pull
 
-  // Creates infinite road (ground) collider using Cannon Plane.
+  const COLLISION_GROUP_GROUND = 1;
+  const COLLISION_GROUP_PLAYER = 2;
+  const COLLISION_GROUP_NPC = 4;
+
   const groundMaterial = new CANNON.Material();
   const groundShape = new CANNON.Plane();
   const groundBody = new CANNON.Body({
-    mass: 0, // Static Body
+    mass: 0,
     material: groundMaterial,
   });
   groundBody.addShape(groundShape);
-  groundBody.quaternion.setFromEuler(-Math.PI / 2, 0, 0); // Flattens ground at y = 0
-  world.addBody(groundBody); // Adds grounded invisible collidable plane to the scene
+  groundBody.quaternion.setFromEuler(-Math.PI / 2, 0, 0);
+  groundBody.collisionFilterGroup = COLLISION_GROUP_GROUND;
+  groundBody.collisionFilterMask = COLLISION_GROUP_PLAYER;
+  world.addBody(groundBody);
 
+  /** ==================================================================
+   *  GLOBAL VARIABLES
+   *///==================================================================
 
   // ---------------- HUD ELEMENTS ----------------
   const speedDisplay = document.getElementById('speedDisplay');
   const scoreDisplay = document.getElementById('scoreDisplay');
+  const pauseOverlay = document.getElementById('pauseOverlay');
+  const pauseBtn = document.getElementById('pauseBtn'); 
+  const startOverlay = document.getElementById('startOverlay');
+  const startBtn = document.getElementById('startBtn');
 
+  // Menu DOM references
+  const playContainer = document.querySelector('.menu__play');
+  const instrContainer = document.querySelector('.menu__instructions');
+  const optionsList = document.querySelector('.menu__options');
+  const playGameBtn = document.getElementById('playGameBtn');
+  const howToPlayBtn = document.getElementById('howToPlayBtn');
+  const playBackBtn = document.getElementById('playBackBtn');
+  const instrBackBtn = document.getElementById('instrBackBtn');
 
-  // ---------------- GLOBAL VARIABLES ----------------
   // Player car values
   let player_car;                         // Declares Player's Car
   let menuModel;
@@ -110,21 +130,49 @@ document.addEventListener('DOMContentLoaded', () => {
   const segmentLength = 50;               // Defines road segment length (units)
   const numSegments = 20;                 // Defines number of road segments at a time
   const roadSegments = [];                // Array for road segments
+  const carStartZ = 0;                    // Player's initial Z position
   let globalNPCCarModel = null;           // NPC car model
   let globalBarrierModel = null;          // Road barrier model
   let globalLightBarrierModel = null;     // Road light barrier model
   let globalTestLightModel = null;        // Street light spotlight model to be placed in middle
   let scoreValue = 0;
 
+  // Game / UI state
   let isPaused = false;
   let isMuted = false;
+  let gameOver = false;
+  let gameStarted = false;
+  let readyToPause = false;
+  let hasFocused = false;
+  let rainbowInterval = null;
+  let bobTime = 0;
   const sparkThreshold = 99;
   let lastSparkTime = 0;
   let spawnChance = 0.99;
   let spawnRate = 1;
 
-  const pauseOverlay = document.getElementById('pauseOverlay'); // create in HTML
-  const pauseBtn = document.getElementById('pauseBtn'); // create in HTML
+  // Braking / clock
+  const clock = new THREE.Clock();  // Three.js Clock
+  let brakingActive = false;        // Tracks braking state
+
+  // Turning values (persist between frames)
+  let turnAngularVelocity = .1;
+  const maxTurnSpeed = 1.5;       // Maximum angular speed (radians per second)
+  const turnAcceleration = 2.5;   // Angular acceleration (radians per second^2)
+  const turnDamping = 0.9;        // Damping factor when no turn inputs are active
+
+  // Intro camera animation values
+  let introCameraAnimation = true;  // Set to True at game start
+  let introTimer = 0;
+  const INTRO_DURATION = 2;         // Duration of the Intro rotation
+  const cameraFrontDistance = 2;    // Distance in front of the car
+  const cameraBehindDistance = 2.5; // Distance behind the car
+  const cameraInitialHeight = 1.2;  // Initial camera height (starts lower)
+  const cameraFinalHeight = 2.0;    // Camera height at end of intro
+
+  // Menu scene values
+  const menuScene = new THREE.Scene();
+  let menuCamera, menuControls;
 
 
   /** ========================== 3D CAR MODELS ==========================
@@ -146,22 +194,18 @@ document.addEventListener('DOMContentLoaded', () => {
       const bbox = new THREE.Box3().setFromObject(player_car);
       carOffsetY = -bbox.min.y;
       player_car.position.set(0, carOffsetY, 0);
+      const carShape = new CANNON.Box(new CANNON.Vec3(0.6, 0.25, 1.25));
+      carBody = new CANNON.Body({ mass: 150 });
 
-      // Approximate the car with a box collider of half-extents (0.5, 0.25, 1)
-      // which gives a full size of (1, 0.5, 2). The car's bottom touches y = 0 when its center is at y = 0.25.
-      const carShape = new CANNON.Box(new CANNON.Vec3(0.5, 0.25, 1));
-      carBody = new CANNON.Body({
-        mass: 150,  // Player Car mass
-      });
-      carBody.addShape(carShape);
+      const carOffset = new CANNON.Vec3(0.2, 0, -1.0); 
+      carBody.addShape(carShape, carOffset);
 
-      // Position the car above the road to allow gravity to pull it down initially.
       carBody.position.set(0, 0.5, 0);
       carBody.fixedRotation = true;
+      carBody.collisionFilterGroup = COLLISION_GROUP_PLAYER;
+      carBody.collisionFilterMask = COLLISION_GROUP_GROUND | COLLISION_GROUP_NPC;
       carBody.updateMassProperties();
       world.addBody(carBody);
-
-      // Save the physics body reference for later use.
       player_car.userData.physicsBody = carBody;
 
       // ==================== COLLISION LISTENERS (registered once) ====================
@@ -203,50 +247,75 @@ document.addEventListener('DOMContentLoaded', () => {
     const npcSpeed = 30;
     const activeRearZ = playerPositionZ + 100;
     const activeFrontZ = playerPositionZ - 1100;
+    const tireRadius = 0.3;
+    const angularDelta = (npcSpeed * delta) / tireRadius;
 
     roadSegments.forEach(segment => {
-      if (segment.userData.npcCars && segment.userData.npcCars.length > 0) {
-        segment.userData.npcCars = segment.userData.npcCars.filter(npc => {
-          npc.userData.globalZ -= npcSpeed * delta;
-          npc.position.z = npc.userData.globalZ - segment.position.z;
+      const npcCars = segment.userData.npcCars;
+      if (!npcCars || npcCars.length === 0) return;
 
-          if (npc.userData.physicsBody) {
-            npc.userData.physicsBody.position.set(npc.position.x, 0.5, npc.userData.globalZ);
-          }
+      // Iterate backward so splice() during removal doesn't skip elements
+      for (let i = npcCars.length - 1; i >= 0; i--) {
+        const npc = npcCars[i];
 
-          if (npc.userData.npcTires === undefined) {
-            npc.userData.npcTires = [
-              npc.getObjectByName("front_l_tire"),
-              npc.getObjectByName("front_r_tire"),
-              npc.getObjectByName("back_l_tire"),
-              npc.getObjectByName("back_r_tire")
-            ];
-          }
+        npc.userData.globalZ -= npcSpeed * delta;
+        npc.position.z = npc.userData.globalZ - segment.position.z;
 
-          const tireRadius = 0.3;
-          const angularDelta = (npcSpeed * delta) / tireRadius;
-          npc.userData.npcTires.forEach(tireGroup => {
-            if (tireGroup && tireGroup.children && tireGroup.children.length > 0) {
-              tireGroup.children.forEach(child => {
-                child.rotation.x -= angularDelta;
-              });
+        if (npc.userData.physicsBody) {
+          npc.userData.physicsBody.position.set(npc.position.x, 0.5, npc.userData.globalZ);
+        }
+
+        if (npc.userData.npcTires === undefined) {
+          npc.userData.npcTires = [
+            npc.getObjectByName("front_l_tire"),
+            npc.getObjectByName("front_r_tire"),
+            npc.getObjectByName("back_l_tire"),
+            npc.getObjectByName("back_r_tire")
+          ];
+        }
+
+        const npcTires = npc.userData.npcTires;
+        for (let t = 0; t < npcTires.length; t++) {
+          const tireGroup = npcTires[t];
+          if (tireGroup && tireGroup.children && tireGroup.children.length > 0) {
+            const children = tireGroup.children;
+            for (let c = 0; c < children.length; c++) {
+              children[c].rotation.x -= angularDelta;
             }
-          });
-
-          if (npc.userData.globalZ > activeRearZ || npc.userData.globalZ < activeFrontZ) {
-            if (npc.userData.physicsBody) world.removeBody(npc.userData.physicsBody);
-            segment.remove(npc);
-            return false; // remove from array
           }
-          return true; // keep in array
-        });
+        }
+
+        if (npc.userData.globalZ > activeRearZ || npc.userData.globalZ < activeFrontZ) {
+          if (npc.userData.physicsBody) world.removeBody(npc.userData.physicsBody);
+          if (npc.userData.clonedMaterials) {
+            npc.userData.clonedMaterials.forEach(mat => mat.dispose());
+          }
+          segment.remove(npc);
+          npcCars.splice(i, 1);
+        }
       }
     });
   }
-  const carStartZ = 0;  // Player's initial Z position
-
-
   // ==================== SETS SPAWNED NPC CAR ====================
+  const NPC_COLORS = [
+    0x9F1616, 0x084DDD, 0xF1B000, 0xD5D5D5, 0x132116, 0x071E49, 0xD77500, 0x330078,
+    0xC0392B, 0x2980B9, 0x27AE60, 0xF39C12, 0x8E44AD, 0x16A085, 0xE74C3C, 0x2C3E50,
+    0xD35400, 0x2ECC71, 0x1ABC9C, 0x34495E, 0xE67E22, 0x7F8C8D, 0xBDC3C7, 0x95A5A6,
+    0x6C3483, 0xA93226, 0x1F618D, 0x148F77, 0xB9770E, 0x922B21, 0x7D3C98, 0x186A3B,
+    0xFF5733, 0xC70039, 0x900C3F, 0x581845, 0xFFC300, 0xDAF7A6, 0x3498DB, 0x9B59B6
+  ];
+
+  const _laneScratch = Array.from({ length: laneCount }, (_, i) => i);
+  function pickRandomLanes(count) {
+    for (let i = 0; i < count; i++) {
+      const j = i + Math.floor(Math.random() * (laneCount - i));
+      const tmp = _laneScratch[i];
+      _laneScratch[i] = _laneScratch[j];
+      _laneScratch[j] = tmp;
+    }
+    return _laneScratch;
+  }
+
   function spawnNPCCar(segment) {
     if (!globalNPCCarModel) {
       segment.userData.needNPCCar = true;
@@ -256,36 +325,43 @@ document.addEventListener('DOMContentLoaded', () => {
 
     segment.userData.npcCars = [];
 
-    const availableLanes = Array.from({ length: laneCount }, (_, i) => i)
-      .sort(() => Math.random() - 0.5)
-      .slice(0, spawnRate); // spawn 2 cars, in 2 different random lanes
+    const lanes = pickRandomLanes(spawnRate); 
 
-    availableLanes.forEach(laneIndex => {
+    for (let laneI = 0; laneI < spawnRate; laneI++) {
+      const laneIndex = lanes[laneI];
       const npcCar = globalNPCCarModel.clone();
       npcCar.rotation.y = -Math.PI;
       npcCar.scale.set(1, 1, 1);
 
+      const clonedMaterials = [];
+
       const mainFrame = npcCar.getObjectByName("main_frame");
       if (mainFrame) {
-        const colors = [
-          0x9F1616, 0x084DDD, 0xF1B000, 0xD5D5D5, 0x132116, 0x071E49, 0xD77500, 0x330078,
-          0xC0392B, 0x2980B9, 0x27AE60, 0xF39C12, 0x8E44AD, 0x16A085, 0xE74C3C, 0x2C3E50,
-          0xD35400, 0x2ECC71, 0x1ABC9C, 0x34495E, 0xE67E22, 0x7F8C8D, 0xBDC3C7, 0x95A5A6,
-          0x6C3483, 0xA93226, 0x1F618D, 0x148F77, 0xB9770E, 0x922B21, 0x7D3C98, 0x186A3B,
-          0xFF5733, 0xC70039, 0x900C3F, 0x581845, 0xFFC300, 0xDAF7A6, 0x3498DB, 0x9B59B6
-        ];
-        const chosenColor = colors[Math.floor(Math.random() * colors.length)];
+        const chosenColor = NPC_COLORS[Math.floor(Math.random() * NPC_COLORS.length)];
+        const NPC_METALNESS = 0.6;
+        const NPC_ROUGHNESS = 0.25;
+
         mainFrame.traverse(child => {
           if (child.isMesh && child.material) {
             if (Array.isArray(child.material)) {
               const originalMat = child.material[0];
               child.material[0] = originalMat.clone();
               child.material[0].color.setHex(chosenColor);
+              if ('metalness' in child.material[0]) {
+                child.material[0].metalness = NPC_METALNESS;
+                child.material[0].roughness = NPC_ROUGHNESS;
+              }
               child.material[0].needsUpdate = true;
+              clonedMaterials.push(child.material[0]);
             } else {
               child.material = child.material.clone();
               child.material.color.setHex(chosenColor);
+              if ('metalness' in child.material) {
+                child.material.metalness = NPC_METALNESS;
+                child.material.roughness = NPC_ROUGHNESS;
+              }
               child.material.needsUpdate = true;
+              clonedMaterials.push(child.material);
             }
           }
         });
@@ -299,19 +375,23 @@ document.addEventListener('DOMContentLoaded', () => {
       segment.add(npcCar);
       segment.userData.npcCars.push(npcCar);
 
-      const halfExtents = new CANNON.Vec3(0.55, 1, 2.2);
+      const halfExtents = new CANNON.Vec3(0.55, 0.5, 1.5);
       const collisionShape = new CANNON.Box(halfExtents);
       const collisionBody = new CANNON.Body({ mass: 500 });
-      const offset = new CANNON.Vec3(0.15, 0, 0.8);
+      const offset = new CANNON.Vec3(-0.04, 0.2, 2.0);
       collisionBody.addShape(collisionShape, offset);
 
       collisionBody.position.set(laneX, 0.5, npcCar.userData.globalZ);
       collisionBody.quaternion.setFromAxisAngle(new CANNON.Vec3(0, .25, 0), -Math.PI);
       collisionBody.isNPC = true;
 
+      collisionBody.collisionFilterGroup = COLLISION_GROUP_NPC;
+      collisionBody.collisionFilterMask = COLLISION_GROUP_PLAYER;
+
       world.addBody(collisionBody);
       npcCar.userData.physicsBody = collisionBody;
-    });
+      npcCar.userData.clonedMaterials = clonedMaterials;
+    }
   }
 
   // ==================== LOAD NPC CAR MODEL ====================
@@ -336,14 +416,11 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
 
-
-
   /** ===================== CREATES INFINITE HIGHWAY =====================
    *  This segment of code is responsible for generating the road, highway
    *  barriers, and collidable invisible walls. These models are generated
    *  according player's Z position and are recycled for optimization.
    *///==================================================================
-
 
   // ==================== LOAD BASE BARRIER MODEL ====================
   function loadRoadBarriers() {
@@ -354,8 +431,6 @@ document.addEventListener('DOMContentLoaded', () => {
         globalBarrierModel = gltf.scene;
         globalBarrierModel.scale.set(1, 1, 1);
         roadSegments.forEach(segment => {
-          // For segments that haven't been assigned barriers and are not flagged for a light barrier,
-          // use the regular barrier model.
           if (!segment.userData.hasBarriers && !segment.userData.useLightBarrier) {
             addBarriersToSegment(segment);
           }
@@ -368,7 +443,6 @@ document.addEventListener('DOMContentLoaded', () => {
     );
   }
 
-
   // ==================== LOAD LIGHT BARRIER MODEL ====================
   function loadRoadLightBarrier() {
     const barrierLoader = new GLTFLoader();
@@ -377,7 +451,6 @@ document.addEventListener('DOMContentLoaded', () => {
       function (gltf) {
         globalLightBarrierModel = gltf.scene;
         globalLightBarrierModel.scale.set(1, 1, 1);
-        // Simply log load success.
         console.log("Road light barrier model loaded.");
 
         // Update any segments flagged for light barriers.
@@ -393,7 +466,6 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     );
   }
-
 
   // ==================== INSERT BARRIER MODELS ====================
   // Adds left and right barriers to a segment
@@ -421,7 +493,6 @@ document.addEventListener('DOMContentLoaded', () => {
     segment.userData.hasBarriers = true;
   }
 
-
   // ==================== LOAD STREETLIGHT SPOTLIGHT ====================
   function loadTestLightModel() {
     const loader = new GLTFLoader();
@@ -431,8 +502,6 @@ document.addEventListener('DOMContentLoaded', () => {
         globalTestLightModel = gltf.scene;
         globalTestLightModel.scale.set(1, 1, 1);
         console.log('Test light model loaded.');
-
-        // Once loaded, insert the test light into every segment flagged with useLightBarrier
         roadSegments.forEach(segment => {
           if (segment.userData.useLightBarrier && !segment.userData.hasMiddleTestLight) {
             insertMiddleTestLightIntoSegment(segment);
@@ -446,7 +515,6 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     );
   }
-
 
   // ==================== INSERT STREETLIGHT SPOTLIGHT ====================
   function insertMiddleTestLightIntoSegment(segment) {
@@ -468,8 +536,6 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     if (originalSpot) {
-
-      // Create a completely new spotlight using the parameters from the original
       const newSpot = new THREE.SpotLight(
         0xF36940,
         originalSpot.intensity,
@@ -478,11 +544,10 @@ document.addEventListener('DOMContentLoaded', () => {
         originalSpot.penumbra,
         originalSpot.decay
       );
+
       newSpot.name = "RebuiltSpotLight";
       newSpot.castShadow = originalSpot.castShadow;
       newSpot.position.copy(originalSpot.position);
-
-      // Create a new target and add it as a child of our container
       const newTarget = new THREE.Object3D();
       newTarget.name = "RebuiltSpotTarget";
       newTarget.position.set(0, -5, 0);
@@ -490,11 +555,11 @@ document.addEventListener('DOMContentLoaded', () => {
       newSpot.target = newTarget;
       newSpot.target.updateMatrixWorld();
       container.add(newSpot);
+
     } else {
       console.warn("No spotlight found in the original test light model; cloning entire model instead.");
       container.add(globalTestLightModel.clone(true));
     }
-    // Clone the original model and remove any spotlights to prevent duplicates
     let accessories = globalTestLightModel.clone(true);
     accessories.traverse(child => {
       if (child.isSpotLight) {
@@ -504,7 +569,6 @@ document.addEventListener('DOMContentLoaded', () => {
     container.add(accessories);
     segment.add(container);
   }
-
 
   // ==================== COLLIDABLE WALLS FUNCTION ====================
   function addCollidableWallsToSegment(segment) {
@@ -523,7 +587,7 @@ document.addEventListener('DOMContentLoaded', () => {
         wallHeight / 2,
         zPos
       );
-      leftWallBody.isWall = true; // <-- Tag the wall
+      leftWallBody.isWall = true;
       world.addBody(leftWallBody);
 
       // RIGHT Wall
@@ -553,7 +617,6 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     segment.userData.hasCollidableWalls = true;
   }
-
 
   // ==================== ROAD SEGMENT CREATION FUNCTION ====================
   function createRoadSegment(segmentIndex, zPosition) {
@@ -601,7 +664,7 @@ document.addEventListener('DOMContentLoaded', () => {
     rightSideLine.position.set(roadTotalWidth / 2 - dashThickness / 2, 0.02, 0);
     roadSegmentGroup.add(rightSideLine);
 
-    // ADD BARRIERS. Uses regular barrier or light barrier depending on segment flag
+    // ADD BARRIERS
     if (globalBarrierModel || globalLightBarrierModel) {
       addBarriersToSegment(roadSegmentGroup);
     }
@@ -626,7 +689,6 @@ document.addEventListener('DOMContentLoaded', () => {
     return roadSegmentGroup;
   }
 
-
   // ==================== ROAD UPDATE FUNCTION ====================
   function updateRoad(playerPositionZ) {
     roadSegments.forEach(segment => {
@@ -642,14 +704,11 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-
   // Load external models.
   loadRoadBarriers();
   loadRoadLightBarrier();
   loadNPCCarModel();
   loadTestLightModel();
-
-
 
 
   /** =========================== ENVIRONMENT ===========================
@@ -660,6 +719,7 @@ document.addEventListener('DOMContentLoaded', () => {
    *///==================================================================
   const skyscraperModels = [];
   const skyScraperLoader = new GLTFLoader();
+  const spawnedSkyscrapers = []; // Array to keep track of the instantiated skyscraper meshes
 
   Promise.all([
     skyScraperLoader.loadAsync('./assets/models/SkyScraperM1.glb'),
@@ -675,9 +735,6 @@ document.addEventListener('DOMContentLoaded', () => {
     console.error('Error loading skyscrapers:', error);
   });
 
-  // Array to keep track of the instantiated skyscraper meshes
-  const spawnedSkyscrapers = [];
-
   function spawnSkyscrapers() {
     // Increased spacing along the Z axis and fewer rows
     const spacing = 25;       // Base spacing for each row
@@ -686,7 +743,11 @@ document.addEventListener('DOMContentLoaded', () => {
     const roadCenterZ = 0;
 
     // List of available colors (red, blue, green) for window emission
-    const windowColors = [0xE04A4A, 0xCF9F65, 0xECE172, 0x7A9AC5, 0xB07AC5];
+    const windowColors = [
+      0xE04A4A, 0xCF9F65, 0xECE172, 0x7A9AC5, 0xB07AC5,
+      0xC93E3E, 0xF06060, 0xB88A55, 0xE0B078, 0xD4C560,
+      0xF5EC85, 0x6A87B8, 0x8FADD9, 0x9868A8, 0xC594D9
+    ];
 
     for (let i = 0; i < numOfRows; i++) {
       // Pick random models for the left and right skyscrapers
@@ -758,20 +819,10 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
+
   /** ========================================================
    *  ==================== MISC FUNCTIONS ====================
   *///========================================================
-
-  const clock = new THREE.Clock();  // Three.js Clock
-  let brakingActive = false;        // Tracks braking state
-
-  // Global turning variables (persist between frames)
-
-  let turnAngularVelocity = .1;
-  const maxTurnSpeed = 1.5;       // Maximum angular speed (radians per second)
-  const turnAcceleration = 2.5;   // Angular acceleration (radians per second^2)
-  const turnDamping = 0.9;        // Damping factor when no turn inputs are active
-
 
   // ------------------- END-GAME UI FUNCTION ------------------
   // Triggers the end-game UI overlay that displays final score and offers to retry attempt
@@ -779,7 +830,6 @@ document.addEventListener('DOMContentLoaded', () => {
     gameOver = true;
     engineSound.stop();
     carCrashSound.play();
-
 
     // Freeze the car
     carBody.velocity.set(0, 0, 0);
@@ -801,8 +851,6 @@ document.addEventListener('DOMContentLoaded', () => {
       retryBtn.click();  // Simulate button click
     }
   });
-  let gameOver = false;
-
 
   // ------------------ TAILLIGHT BRAKELIGHT FUNCTION ------------------
   // Updates taillight light itensities based on braking status
@@ -824,13 +872,12 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     });
   }
-  const startOverlay = document.getElementById('startOverlay');
-  const startBtn = document.getElementById('startBtn');
 
-  let gameStarted = false;
-  const menuScene = new THREE.Scene();
-  let menuCamera, menuControls;
-  let bobTime = 0;
+
+  /** ==================== MENU / START SCREEN ====================
+   *  Loads the 3D main-menu background scene/camera, wires up the
+   *  menu -> play/instructions panels, and starts the game.
+   *///===============================================================
 
   new GLTFLoader().load('assets/models/menu-screen.glb', gltf => {
     menuModel = gltf.scene;
@@ -883,22 +930,12 @@ document.addEventListener('DOMContentLoaded', () => {
     startOverlay.style.display = 'none';
     resetState();
 
-
     // ==================== INITIALIZATION ====================
     for (let i = 0; i < numSegments; i++) {
       // Each segment is positioned relative to the player's starting z-position.
       roadSegments.push(createRoadSegment(i, carStartZ - i * segmentLength));
     }
-
   }
-
-  const playContainer = document.querySelector('.menu__play');
-  const instrContainer = document.querySelector('.menu__instructions');
-  const optionsList = document.querySelector('.menu__options');
-  const playGameBtn = document.getElementById('playGameBtn');
-  const howToPlayBtn = document.getElementById('howToPlayBtn');
-  const playBackBtn = document.getElementById('playBackBtn');
-  const instrBackBtn = document.getElementById('instrBackBtn');
 
   // FORCE initial visibility
   optionsList.style.display = 'flex';
@@ -925,11 +962,10 @@ document.addEventListener('DOMContentLoaded', () => {
     optionsList.style.display = 'flex';
   });
 
-
-  startBtn.addEventListener("click", () => engineSound.play());
+  //startBtn.addEventListener("click", () => engineSound.play());
   startBtn.addEventListener('click', initGame);
 
-  // Utility: traverse & apply color 
+  // Utility: traverse & apply color
   function colorize(root, hex) {
     root.traverse(child => {
       if (!child.isMesh) return;
@@ -943,12 +979,12 @@ document.addEventListener('DOMContentLoaded', () => {
       });
     });
   }
+
+
   /** ===================================================================
   /** ======================== PAGE PROPERTIES ==========================
   *///===================================================================
-  let readyToPause = false;
 
-  let hasFocused = false;
   window.addEventListener('focus', () => {
     hasFocused = true;
   });
@@ -972,8 +1008,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   document.querySelector('.difficulty-btn.active')?.click();
 
-  // Color Buttons 
-  let rainbowInterval = null;
+  // Color Buttons
   document.querySelectorAll('.color-circle').forEach(btn => {
     btn.addEventListener('click', () => {
       document.querySelectorAll('.color-circle').forEach(b => b.classList.remove('active'));
@@ -1000,8 +1035,6 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   });
 
-
-
   function setPaused(paused) {
     if (isPaused === paused) return;
     isPaused = paused;
@@ -1021,7 +1054,6 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 
-
   function setMute(muted) {
     if (isMuted === muted) return;
     isMuted = muted;
@@ -1037,25 +1069,60 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 
-
+  function spawnSpark() {
+    const spark = document.createElement('div');
+    spark.className = 'spark';
+    const wrapperWidth = speedDisplayWrapper.offsetWidth;
+    spark.style.left = `${Math.random() * wrapperWidth}px`;
+    spark.style.setProperty('--drift', `${(Math.random() - 0.5) * 30}px`);
+    speedDisplayWrapper.appendChild(spark);
+    setTimeout(() => spark.remove(), 800);
+  }
 
 
   /** ===================================================================
   /** ==================== GAME ANIMATION LOOP ==========================
    *///==================================================================
+  const canvasEl = renderer.domElement; // avoids repeated document.querySelector("canvas")
+
+  const _turnQuaternion = new THREE.Quaternion();
+  const _yAxis = new THREE.Vector3(0, 1, 0);
+  const _forwardVector = new THREE.Vector3();
+  const _drawOffsetVec = new THREE.Vector3();
+
+  const _camDirTmp = new THREE.Vector3();      // reused for getWorldDirection calls
+  const _offsetVecTmp = new THREE.Vector3();   // intro camera offset
+  const _desiredCamPos = new THREE.Vector3();  // intro + normal camera desired pos
+  const _lookAtTmp = new THREE.Vector3();      // camera lookAt target
+
+  const _bgColorDark = new THREE.Color(0x040308);
+  const _bgColorNormal = new THREE.Color(0x070610);
+
+  let smoothedSpeed = 0; // tracks the velocity magnitude actually applied, eased toward effectiveSpeed
+
+  const _colorStops = [
+    { r: 255, g: 255, b: 255 }, // original/white
+    { r: 255, g: 165, b: 0 },   // orange
+    { r: 255, g: 0, b: 0 }      // red
+  ];
+
+  const BASE_FOV = 75;      // matches initial camera FOV
+  const MAX_FOV_BOOST = 20; // extra degrees of FOV at max speed
+  const FOV_EXPONENT = 3;   // higher = curve stays flatter longer, then rises sharply near max speed
+  let lastAppliedFov = BASE_FOV;
+
   function animate() {
 
     if (gameOver) {
       if (engineSound.isPlaying) {
         engineSound.stop();
       }
-      document.querySelector("canvas").style.filter = "grayscale(1)"; // Black & white filter
+      canvasEl.style.filter = "grayscale(1)"; // Black & white filter
       return;
     }
 
     requestAnimationFrame(animate);
 
-    // render the menu until the game starts
     if (!gameStarted) {
       // slower time advance
       bobTime += 0.002;
@@ -1074,20 +1141,19 @@ document.addEventListener('DOMContentLoaded', () => {
       if (engineSound.isPlaying) {
         engineSound.stop();
       }
-      document.querySelector("canvas").style.filter = "grayscale(1)"; // Black & white filter
+      canvasEl.style.filter = "grayscale(1)"; // Black & white filter
       renderer.render(scene, camera);
       return;
     }
     listener.setMasterVolume(isMuted ? 0 : 1);
 
-
-    controls.update();
-    const delta = clock.getDelta();
-    world.step(1 / 60, delta, 3);
-
     if (!engineSound.isPlaying) {
       engineSound.play();
     }
+
+    const delta = clock.getDelta();
+    world.step(1 / 60, delta, 3);
+
 
     updateSkyscrapers(carBody.position.z); // Generate Skyscrapers based on Player Position
 
@@ -1138,7 +1204,7 @@ document.addEventListener('DOMContentLoaded', () => {
         // Normalize speed 0 → 1
         const speedNorm = THREE.MathUtils.clamp(currentSpeed / maxSpeed, 0, 1);
 
-        // Pitch scaling 
+        // Pitch scaling
         const minPitch = 0.8;
         const maxPitch = 2.0;
         engineSound.setPlaybackRate(THREE.MathUtils.lerp(minPitch, maxPitch, speedNorm));
@@ -1147,6 +1213,16 @@ document.addEventListener('DOMContentLoaded', () => {
         const minVol = 0.025;
         const maxVol = 0.05;
         engineSound.setVolume(THREE.MathUtils.lerp(minVol, maxVol, speedNorm));
+      }
+
+      // --- FOV scaling: exponential increase as speed approaches max ---
+      const fovRatio = THREE.MathUtils.clamp(currentSpeed / maxSpeed, 0, 1);
+      const fovCurve = Math.pow(fovRatio, FOV_EXPONENT);
+      const targetFov = BASE_FOV + MAX_FOV_BOOST * fovCurve;
+      if (Math.abs(targetFov - lastAppliedFov) > 0.01) {
+        camera.fov = targetFov;
+        camera.updateProjectionMatrix();
+        lastAppliedFov = targetFov;
       }
 
 
@@ -1166,16 +1242,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
       // Compute the small incremental turn angle for this frame
       const turnAngle = turnAngularVelocity * delta;
-      const turnQuaternion = new THREE.Quaternion();
-      turnQuaternion.setFromAxisAngle(new THREE.Vector3(0, 1, 0), turnAngle);
+      _turnQuaternion.setFromAxisAngle(_yAxis, turnAngle);
       // Apply the rotation increment to the car's orientation
-      player_car.quaternion.multiplyQuaternions(turnQuaternion, player_car.quaternion);
+      player_car.quaternion.multiplyQuaternions(_turnQuaternion, player_car.quaternion);
       // Copy the updated orientation to the physics body
       carBody.quaternion.copy(player_car.quaternion);
 
       // ---------- Update Car's Velocity ----------
-      const forwardVector = new THREE.Vector3(0, 0, -1);
-      forwardVector.applyQuaternion(player_car.quaternion).normalize();
+      _forwardVector.set(0, 0, -1);
+      _forwardVector.applyQuaternion(player_car.quaternion).normalize();
 
       // If turning - reduce speed
       let effectiveSpeed = currentSpeed;
@@ -1185,11 +1260,14 @@ document.addEventListener('DOMContentLoaded', () => {
         effectiveSpeed = currentSpeed * (1 - reductionFactor);
       }
       // Set physics body's velocity in direction car is facing
-      carBody.velocity.set(forwardVector.x * effectiveSpeed, carBody.velocity.y, forwardVector.z * effectiveSpeed);
-
+      // NEW: ease toward effectiveSpeed instead of snapping to it
+      const speedSmoothFactor = 0.1; // lower = smoother/slower catch-up, higher = snappier
+      smoothedSpeed = THREE.MathUtils.lerp(smoothedSpeed, effectiveSpeed, speedSmoothFactor);
+      carBody.velocity.set(_forwardVector.x * smoothedSpeed, carBody.velocity.y, _forwardVector.z * smoothedSpeed);
       // Compute and set the visual offset for the car model
       const drawOffset = carOffsetY - 0.25;
-      player_car.position.copy(carBody.position).add(new THREE.Vector3(0, drawOffset, 0));
+      _drawOffsetVec.set(0, drawOffset, 0);
+      player_car.position.copy(carBody.position).add(_drawOffsetVec);
 
       // Update visual infinite road
       updateRoad(carBody.position.z);
@@ -1200,19 +1278,12 @@ document.addEventListener('DOMContentLoaded', () => {
       // Animate Tire rotation based on forward movement
       const tireRadius = 0.3;
       const angularDelta = (currentSpeed * delta) / tireRadius;
-      tires.forEach(tire => {
-        if (tire) {
-          tire.rotation.x -= angularDelta / 3;
-        }
-      });
+      for (let i = 0; i < tires.length; i++) {
+        const tire = tires[i];
+        if (tire) tire.rotation.x -= angularDelta / 3;
+      }
 
       // ---------- Updated Camera Positioning ----------
-      const carDirection = new THREE.Vector3();
-      player_car.getWorldDirection(carDirection);
-
-      // Compute the horizontal angle of the car's forward direction
-      let carAngle = Math.atan2(carDirection.x, carDirection.z);
-
       if (introCameraAnimation && player_car) {
         // Increment the intro timer with delta time
         introTimer += delta;
@@ -1220,11 +1291,10 @@ document.addEventListener('DOMContentLoaded', () => {
         const t = THREE.MathUtils.clamp(introTimer / INTRO_DURATION, 0, 1);
 
         // Get the car's forward direction and project it onto the horizontal plane
-        const carForward = new THREE.Vector3();
-        player_car.getWorldDirection(carForward);
-        carForward.y = 0;
-        carForward.normalize();
-        const carAngle = Math.atan2(carForward.x, carForward.z);
+        player_car.getWorldDirection(_camDirTmp);
+        _camDirTmp.y = 0;
+        _camDirTmp.normalize();
+        const carAngle = Math.atan2(_camDirTmp.x, _camDirTmp.z);
 
         // Starting at the side of the car (here, carAngle + PI/3 places it to the side)
         const initialAngle = carAngle + Math.PI / 3;
@@ -1240,22 +1310,22 @@ document.addEventListener('DOMContentLoaded', () => {
         // Compute the horizontal offset vector from the car's center
         const offsetX = Math.sin(currentAngle) * currentRadius;
         const offsetZ = Math.cos(currentAngle) * currentRadius;
-        const offsetVec = new THREE.Vector3(offsetX, 0, offsetZ);
+        _offsetVecTmp.set(offsetX, 0, offsetZ);
 
         // Compute the camera's vertical height by interpolating from the initial to the final height
         const currentHeight = THREE.MathUtils.lerp(cameraInitialHeight, cameraFinalHeight, t);
 
         // Compute the overall desired camera position:
-        const desiredCameraPos = player_car.position.clone().add(offsetVec);
-        desiredCameraPos.y += currentHeight;
+        _desiredCamPos.copy(player_car.position).add(_offsetVecTmp);
+        _desiredCamPos.y += currentHeight;
 
         // Set camera position
-        camera.position.copy(desiredCameraPos);
+        camera.position.copy(_desiredCamPos);
 
-        // Have camera look at the car 
-        const lookAtPos = player_car.position.clone();
-        lookAtPos.y += 2.25;
-        camera.lookAt(lookAtPos);
+        // Have camera look at the car
+        _lookAtTmp.copy(player_car.position);
+        _lookAtTmp.y += 2.25;
+        camera.lookAt(_lookAtTmp);
 
         // End the intro phase once t reaches 1.
         if (t >= 1) {
@@ -1265,38 +1335,30 @@ document.addEventListener('DOMContentLoaded', () => {
       } else if (player_car) {
 
         const cameraDistanceBehind = -2.5;
-        const carDirection = new THREE.Vector3();
-        player_car.getWorldDirection(carDirection);
+        player_car.getWorldDirection(_camDirTmp);
         const normalCameraHeight = 2.0;
 
         // Place the camera behind the car (opposite to its forward vector)
-        const cameraOffset = carDirection.clone().negate().multiplyScalar(cameraDistanceBehind);
-        const desiredCameraPos = player_car.position.clone().add(cameraOffset);
-        desiredCameraPos.y += normalCameraHeight;
+        _offsetVecTmp.copy(_camDirTmp).negate().multiplyScalar(cameraDistanceBehind);
+        _desiredCamPos.copy(player_car.position).add(_offsetVecTmp);
+        _desiredCamPos.y += normalCameraHeight;
 
         // Apply smoothing (lag) on the X and Y axes; Z is snapped instantly
         const cameraSmoothFactor = 0.1;
-        camera.position.x = THREE.MathUtils.lerp(camera.position.x, desiredCameraPos.x, cameraSmoothFactor);
-        camera.position.y = THREE.MathUtils.lerp(camera.position.y, desiredCameraPos.y, cameraSmoothFactor);
-        camera.position.z = desiredCameraPos.z;
+        camera.position.x = THREE.MathUtils.lerp(camera.position.x, _desiredCamPos.x, cameraSmoothFactor);
+        camera.position.y = THREE.MathUtils.lerp(camera.position.y, _desiredCamPos.y, cameraSmoothFactor);
+        camera.position.z = _desiredCamPos.z;
 
-        const adjustedPosition = player_car.position.clone();
-        adjustedPosition.y += 2.25;
-        camera.lookAt(adjustedPosition);
+        _lookAtTmp.copy(player_car.position);
+        _lookAtTmp.y += 2.25;
+        camera.lookAt(_lookAtTmp);
       }
     }
-    scene.background.lerp(new THREE.Color(currentSpeed >= 99 ? 0x040308 : 0x070610), 0.05);
+    scene.background.lerp(currentSpeed >= 99 ? _bgColorDark : _bgColorNormal, 0.05);
 
-    // ---------- Top Speed Effect ----------
-    if (currentSpeed >= 99) {
-      // Top Speed - Enable Saturation Filter
-      document.querySelector("canvas").style.filter = "saturate(1.25)";
-      light.intensity = 0.45;
-    } else {
-      // Reset filter
-      document.querySelector("canvas").style.filter = "";
-      light.intensity = 0.6;
-    }
+    const newFilter = currentSpeed >= 99 ? "saturate(1.25)" : "";
+    if (canvasEl.style.filter !== newFilter) canvasEl.style.filter = newFilter;
+    light.intensity = currentSpeed >= 99 ? 0.45 : 0.6;
 
     // ---------- Update HUD ----------
     const speedMPH = currentSpeed * 1.4;
@@ -1308,19 +1370,12 @@ document.addEventListener('DOMContentLoaded', () => {
     const speedRatio = THREE.MathUtils.clamp(currentSpeed / maxSpeed, 0, 1);
     const easedRatio = Math.pow(speedRatio, 4);
 
-    // Color stops: original -> orange -> red
-    const stops = [
-      { r: 255, g: 255, b: 255 }, // original/white
-      { r: 255, g: 165, b: 0 },   // orange
-      { r: 255, g: 0, b: 0 }    // red
-    ];
-
-    const segment = easedRatio * (stops.length - 1);
-    const index = Math.min(Math.floor(segment), stops.length - 2);
+    const segment = easedRatio * (_colorStops.length - 1);
+    const index = Math.min(Math.floor(segment), _colorStops.length - 2);
     const localT = segment - index;
 
-    const from = stops[index];
-    const to = stops[index + 1];
+    const from = _colorStops[index];
+    const to = _colorStops[index + 1];
 
     const r = Math.round(THREE.MathUtils.lerp(from.r, to.r, localT));
     const g = Math.round(THREE.MathUtils.lerp(from.g, to.g, localT));
@@ -1335,18 +1390,6 @@ document.addEventListener('DOMContentLoaded', () => {
         spawnSpark();
       }
     }
-
-    function spawnSpark() {
-      const spark = document.createElement('div');
-      spark.className = 'spark';
-      const wrapperWidth = speedDisplayWrapper.offsetWidth;
-      spark.style.left = `${Math.random() * wrapperWidth}px`;
-      spark.style.setProperty('--drift', `${(Math.random() - 0.5) * 30}px`);
-      speedDisplayWrapper.appendChild(spark);
-      setTimeout(() => spark.remove(), 800);
-    }
-
-
   }
   animate();
 });
