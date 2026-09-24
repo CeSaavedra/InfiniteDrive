@@ -1,4 +1,4 @@
-# Infinite Drive v1.1
+# Infinite Drive v1.3
 *3D Driving Game - Take A Nighttime Drive Through An Infinitely Generating World with Traffic!*
 
 ![Image of Infinite Drive Gameplay](assets/images/gameplay_img.png)
@@ -20,6 +20,7 @@
 - Settings UI allowing you to mute or pause the game
 - Title Screen with 'How to Play' section and Player Car Color Picker
 - End Game / Restart UI allowing replayability
+- Difficulty Setting allowing easy, normal, and hard difficulty
 
 ## Controls
 - W: Accelerate
@@ -34,8 +35,11 @@
 - Wanted to keep all 3D assets self-made and low-poly, so they were created in Blender and contributed to a lightweight 2.9 MB project file size.
 - Ran into performance issues, requiring optimization of the world generation and spotlights within the project.
 
-## Title Screen
-![Image of Infinite Drive menu screen](assets/images/menu_screen.png)
+## Game Start Screen
+![Image of Infinite Drive game start screen](assets/images/menu_screen.png)
+
+## Collision View
+![Image of Infinite Drive models with visible colliders](assets/images/physics_ss.png)
 
 ## Credits
 - "Play" and "Pause" icons by Noah Jacobus (SVGRepo, PD License)
